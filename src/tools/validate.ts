@@ -1,4 +1,5 @@
-import { z } from 'zod';
+import { z } from "zod";
+import { JupiterQuoteResponseSchema } from "../jupiter/schema.js";
 
 const QuoteSchema = z.object({
   inputMint: z.string().min(1),
@@ -8,10 +9,10 @@ const QuoteSchema = z.object({
 });
 
 const TradeSchema = z.object({
-  quoteResponse: z.record(z.unknown()),
+  quoteResponse: JupiterQuoteResponseSchema,
   txOptions: z
     .object({
-      commitment: z.enum(['processed', 'confirmed', 'finalized']).optional(),
+      commitment: z.enum(["processed", "confirmed", "finalized"]).optional(),
     })
     .optional(),
 });
@@ -35,7 +36,7 @@ const RiskSchema = z.object({
         amountRaw: z.string(),
         decimals: z.number().int(),
         uiAmount: z.number().nullable(),
-      })
+      }),
     ),
   }),
   policySnapshot: z.object({
@@ -50,13 +51,13 @@ const RiskSchema = z.object({
 });
 
 const NotifySchema = z.object({
-  level: z.enum(['info', 'warn', 'error']),
+  level: z.enum(["info", "warn", "error"]),
   message: z.string(),
   metadata: z.record(z.unknown()).optional(),
 });
 
 const TickSchema = z.object({
-  reason: z.enum(['timer', 'operator', 'recovery']),
+  reason: z.enum(["timer", "operator", "recovery"]),
 });
 
 const AgentMessageSchema = z.object({
@@ -65,11 +66,11 @@ const AgentMessageSchema = z.object({
 });
 
 export const TOOL_VALIDATORS: Record<string, z.ZodTypeAny> = {
-  'wallet.get_balances': BalancesSchema,
-  'market.jupiter_quote': QuoteSchema,
-  'risk.check_trade': RiskSchema,
-  'trade.jupiter_swap': TradeSchema,
-  'notify.emit': NotifySchema,
-  'system.autopilot_tick': TickSchema,
-  'agent.message': AgentMessageSchema,
+  "wallet.get_balances": BalancesSchema,
+  "market.jupiter_quote": QuoteSchema,
+  "risk.check_trade": RiskSchema,
+  "trade.jupiter_swap": TradeSchema,
+  "notify.emit": NotifySchema,
+  "system.autopilot_tick": TickSchema,
+  "agent.message": AgentMessageSchema,
 };

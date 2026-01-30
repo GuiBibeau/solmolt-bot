@@ -6,7 +6,7 @@ export type TokenBalance = {
 };
 
 export type ConfirmParams = {
-  commitment?: 'processed' | 'confirmed' | 'finalized';
+  commitment?: "processed" | "confirmed" | "finalized";
   timeoutMs?: number;
   pollIntervalMs?: number;
 };

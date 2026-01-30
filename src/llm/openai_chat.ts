@@ -1,29 +1,39 @@
-import type { LlmClient, LlmResponse, ToolSchema, LlmToolCall } from './types.js';
-import type { SolmoltConfig } from '../config/config.js';
+import type { RalphConfig } from "../config/config.js";
+import { OpenAiChatResponseSchema } from "./schema.js";
+import type {
+  LlmClient,
+  LlmMessage,
+  LlmResponse,
+  LlmToolCall,
+  ToolSchema,
+} from "./types.js";
 
 export class OpenAiChatClient implements LlmClient {
-  constructor(private readonly config: SolmoltConfig['llm']) {}
+  constructor(private readonly config: RalphConfig["llm"]) {}
 
-  async generate(messages: Record<string, unknown>[], tools: ToolSchema[]): Promise<LlmResponse> {
-    const url = `${this.config.baseUrl.replace(/\/$/, '')}/chat/completions`;
+  async generate(
+    messages: LlmMessage[],
+    tools: ToolSchema[],
+  ): Promise<LlmResponse> {
+    const url = `${this.config.baseUrl.replace(/\/$/, "")}/chat/completions`;
     const payload = {
       model: this.config.model,
       messages,
       tools: tools.map((tool) => ({
-        type: 'function',
+        type: "function",
         function: {
           name: tool.name,
           description: tool.description,
           parameters: tool.parameters,
         },
       })),
-      tool_choice: 'auto',
+      tool_choice: "auto",
     };
 
     const response = await fetch(url, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'content-type': 'application/json',
+        "content-type": "application/json",
         authorization: `Bearer ${this.config.apiKey}`,
       },
       body: JSON.stringify(payload),
@@ -34,19 +44,19 @@ export class OpenAiChatClient implements LlmClient {
       throw new Error(`LLM request failed: ${response.status} ${body}`);
     }
 
-    const data = await response.json();
-    const choice = data.choices?.[0]?.message;
+    const data = OpenAiChatResponseSchema.parse(await response.json());
+    const choice = data.choices[0]?.message;
     if (!choice) {
-      throw new Error('LLM response missing message');
+      throw new Error("LLM response missing message");
     }
 
-    const toolCalls: LlmToolCall[] | undefined = choice.tool_calls
-      ? choice.tool_calls.map((call: any) => ({
-          id: String(call.id),
-          name: String(call.function?.name ?? ''),
-          arguments: String(call.function?.arguments ?? '{}'),
-        }))
-      : undefined;
+    const toolCalls: LlmToolCall[] | undefined = choice.tool_calls?.map(
+      (call) => ({
+        id: call.id,
+        name: call.function.name,
+        arguments: call.function.arguments,
+      }),
+    );
 
     return {
       message: choice,

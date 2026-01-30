@@ -1,14 +1,14 @@
-import type { SolmoltConfig } from '../config/config.js';
-import type { SolanaAdapter } from '../solana/adapter.js';
-import type { AgentHandle } from '../agent/types.js';
-import type { ToolSchema } from '../llm/types.js';
-import { SessionJournal, TradeJournal } from '../journal/journal.js';
-import { redact } from '../util/redaction.js';
-import { TOOL_VALIDATORS } from './validate.js';
-import { warn } from '../util/logger.js';
+import type { AgentHandle } from "../agent/types.js";
+import type { RalphConfig } from "../config/config.js";
+import type { SessionJournal, TradeJournal } from "../journal/journal.js";
+import type { ToolSchema } from "../llm/types.js";
+import type { SolanaAdapter } from "../solana/adapter.js";
+import { warn } from "../util/logger.js";
+import { redact } from "../util/redaction.js";
+import { TOOL_VALIDATORS } from "./validate.js";
 
 export type ToolContext = {
-  config: SolmoltConfig;
+  config: RalphConfig;
   solana: SolanaAdapter;
   sessionJournal: SessionJournal;
   tradeJournal: TradeJournal;
@@ -45,17 +45,24 @@ export class ToolRegistry {
     return Array.from(this.tools.values());
   }
 
-  listSchemas(config: SolmoltConfig): ToolSchema[] {
+  listSchemas(config: RalphConfig): ToolSchema[] {
     return this.list()
-      .filter((tool) => tool.schema && this.isEligible(tool, config))
-      .map((tool) => tool.schema!) ;
+      .filter(
+        (tool): tool is ToolDefinition & { schema: ToolSchema } =>
+          Boolean(tool.schema) && this.isEligible(tool, config),
+      )
+      .map((tool) => tool.schema);
   }
 
   get(name: string): ToolDefinition | undefined {
     return this.tools.get(name);
   }
 
-  async invoke(name: string, ctx: ToolContext, input: unknown): Promise<unknown> {
+  async invoke(
+    name: string,
+    ctx: ToolContext,
+    input: unknown,
+  ): Promise<unknown> {
     const tool = this.tools.get(name);
     if (!tool) throw new Error(`Tool not found: ${name}`);
     if (!this.isEligible(tool, ctx.config)) {
@@ -65,13 +72,16 @@ export class ToolRegistry {
     if (validator) {
       const parsed = validator.safeParse(input ?? {});
       if (!parsed.success) {
-        warn('tool.validation.failed', { tool: name, issues: parsed.error.flatten() });
+        warn("tool.validation.failed", {
+          tool: name,
+          issues: parsed.error.flatten(),
+        });
         throw new Error(`Tool validation failed: ${name}`);
       }
     }
     const result = await tool.execute(ctx, input);
     await ctx.sessionJournal.append({
-      type: 'tool',
+      type: "tool",
       name,
       input: redact(input as Record<string, unknown>),
       output: redact(result as Record<string, unknown>),
@@ -80,7 +90,7 @@ export class ToolRegistry {
     return result;
   }
 
-  isEligible(tool: ToolDefinition, config: SolmoltConfig): boolean {
+  isEligible(tool: ToolDefinition, config: RalphConfig): boolean {
     const requirements = tool.requires;
     if (!requirements) return true;
     if (requirements.env) {
@@ -97,11 +107,11 @@ export class ToolRegistry {
   }
 }
 
-function getConfigValue(config: SolmoltConfig, path: string): unknown {
-  const segments = path.split('.');
+function getConfigValue(config: RalphConfig, path: string): unknown {
+  const segments = path.split(".");
   let current: unknown = config as unknown;
   for (const segment of segments) {
-    if (!current || typeof current !== 'object') return undefined;
+    if (!current || typeof current !== "object") return undefined;
     const record = current as Record<string, unknown>;
     current = record[segment];
   }

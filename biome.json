@@ -1,0 +1,24 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.3.13/schema.json",
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true
+    }
+  },
+  "files": {
+    "includes": [
+      "**/*",
+      "!!**/node_modules",
+      "!!**/dist",
+      "!!**/sessions",
+      "!!**/trades",
+      "!!**/.tmp"
+    ]
+  }
+}

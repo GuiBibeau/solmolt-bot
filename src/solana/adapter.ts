@@ -1,4 +1,4 @@
-import type { ConfirmParams, TokenBalance } from './types.js';
+import type { ConfirmParams, TokenBalance } from "./types.js";
 
 export type SendResult = {
   signature: string;
@@ -10,8 +10,14 @@ export interface SolanaAdapter {
   getPublicKey(): string;
   getSolBalanceLamports(): Promise<string>;
   getSplBalances(mints?: string[]): Promise<TokenBalance[]>;
-  getLatestBlockhash(): Promise<{ blockhash: string; lastValidBlockHeight: number }>;
+  getLatestBlockhash(): Promise<{
+    blockhash: string;
+    lastValidBlockHeight: number;
+  }>;
   signRawTransaction(serializedTx: Uint8Array): Promise<Uint8Array>;
-  sendAndConfirmRawTx(serializedTx: Uint8Array, confirm?: ConfirmParams): Promise<SendResult>;
+  sendAndConfirmRawTx(
+    serializedTx: Uint8Array,
+    confirm?: ConfirmParams,
+  ): Promise<SendResult>;
   simulateRawTx?(serializedTx: Uint8Array): Promise<unknown>;
 }

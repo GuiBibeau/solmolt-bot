@@ -2,7 +2,7 @@ export type ToolSchema = {
   name: string;
   description: string;
   parameters: {
-    type: 'object';
+    type: "object";
     properties?: Record<string, unknown>;
     required?: string[];
     additionalProperties?: boolean;
@@ -15,12 +15,26 @@ export type LlmToolCall = {
   arguments: string;
 };
 
+export type LlmMessage = {
+  role: "system" | "user" | "assistant" | "tool";
+  content?: string | null;
+  tool_calls?: Array<{
+    id: string;
+    function: { name: string; arguments: string };
+  }>;
+  tool_call_id?: string;
+  name?: string;
+};
+
 export type LlmResponse = {
-  message: Record<string, unknown>;
+  message: LlmMessage;
   text?: string | null;
   toolCalls?: LlmToolCall[];
 };
 
 export type LlmClient = {
-  generate: (messages: Record<string, unknown>[], tools: ToolSchema[]) => Promise<LlmResponse>;
+  generate: (
+    messages: LlmMessage[],
+    tools: ToolSchema[],
+  ) => Promise<LlmResponse>;
 };

@@ -1,7 +1,14 @@
-const SECRET_KEY_PATTERN = /(privateKey|secret|apiKey|token|authorization|auth|bearer)/i;
+const SECRET_KEY_PATTERN =
+  /(privateKey|secret|apiKey|token|authorization|auth|bearer)/i;
 const BYTE_LIKE = /(Uint8Array|Buffer)/;
 
-export type Redactable = Record<string, unknown> | unknown[] | string | number | boolean | null;
+export type Redactable =
+  | Record<string, unknown>
+  | unknown[]
+  | string
+  | number
+  | boolean
+  | null;
 
 function shouldRedactKey(key: string): boolean {
   return SECRET_KEY_PATTERN.test(key);

@@ -3,20 +3,22 @@ import {
   Keypair,
   PublicKey,
   VersionedTransaction,
-} from '@solana/web3.js';
-import type { ConfirmParams, TokenBalance } from './types.js';
-import type { SolanaAdapter, SendResult } from './adapter.js';
-import { loadSecretKey } from './keys.js';
-import { sleep } from '../util/time.js';
+} from "@solana/web3.js";
+import { sleep } from "../util/time.js";
+import type { SendResult, SolanaAdapter } from "./adapter.js";
+import { loadSecretKey } from "./keys.js";
+import type { ConfirmParams, TokenBalance } from "./types.js";
 
-const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+const TOKEN_PROGRAM_ID = new PublicKey(
+  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+);
 
 export class Web3Adapter implements SolanaAdapter {
   private readonly connection: Connection;
   private readonly keypair: Keypair;
 
   constructor(rpcEndpoint: string, privateKey?: string, keyfilePath?: string) {
-    this.connection = new Connection(rpcEndpoint, 'confirmed');
+    this.connection = new Connection(rpcEndpoint, "confirmed");
     const secretKey = loadSecretKey(privateKey, keyfilePath);
     this.keypair = Keypair.fromSecretKey(secretKey);
   }
@@ -31,13 +33,20 @@ export class Web3Adapter implements SolanaAdapter {
   }
 
   async getSplBalances(mints?: string[]): Promise<TokenBalance[]> {
-    const response = await this.connection.getParsedTokenAccountsByOwner(this.keypair.publicKey, {
-      programId: TOKEN_PROGRAM_ID,
-    });
+    const response = await this.connection.getParsedTokenAccountsByOwner(
+      this.keypair.publicKey,
+      {
+        programId: TOKEN_PROGRAM_ID,
+      },
+    );
     const tokens = response.value.map((account) => {
       const info = account.account.data.parsed.info as {
         mint: string;
-        tokenAmount: { amount: string; decimals: number; uiAmount: number | null };
+        tokenAmount: {
+          amount: string;
+          decimals: number;
+          uiAmount: number | null;
+        };
       };
       return {
         mint: info.mint,
@@ -52,8 +61,11 @@ export class Web3Adapter implements SolanaAdapter {
     return tokens.filter((token) => allow.has(token.mint));
   }
 
-  async getLatestBlockhash(): Promise<{ blockhash: string; lastValidBlockHeight: number }> {
-    const latest = await this.connection.getLatestBlockhash('confirmed');
+  async getLatestBlockhash(): Promise<{
+    blockhash: string;
+    lastValidBlockHeight: number;
+  }> {
+    const latest = await this.connection.getLatestBlockhash("confirmed");
     return {
       blockhash: latest.blockhash,
       lastValidBlockHeight: latest.lastValidBlockHeight,
@@ -66,11 +78,14 @@ export class Web3Adapter implements SolanaAdapter {
     return tx.serialize();
   }
 
-  async sendAndConfirmRawTx(serializedTx: Uint8Array, confirm: ConfirmParams = {}): Promise<SendResult> {
+  async sendAndConfirmRawTx(
+    serializedTx: Uint8Array,
+    confirm: ConfirmParams = {},
+  ): Promise<SendResult> {
     const signature = await this.connection.sendRawTransaction(serializedTx, {
       skipPreflight: false,
     });
-    const commitment = confirm.commitment ?? 'confirmed';
+    const commitment = confirm.commitment ?? "confirmed";
     const timeoutMs = confirm.timeoutMs ?? 60_000;
     const pollIntervalMs = confirm.pollIntervalMs ?? 1_000;
     const started = Date.now();
@@ -82,20 +97,27 @@ export class Web3Adapter implements SolanaAdapter {
         return { signature, slot: info.slot, err: info.err };
       }
       if (info?.confirmationStatus) {
-        if (commitment === 'processed') {
+        if (commitment === "processed") {
           return { signature, slot: info.slot };
         }
-        if (commitment === 'confirmed' && (info.confirmationStatus === 'confirmed' || info.confirmationStatus === 'finalized')) {
+        if (
+          commitment === "confirmed" &&
+          (info.confirmationStatus === "confirmed" ||
+            info.confirmationStatus === "finalized")
+        ) {
           return { signature, slot: info.slot };
         }
-        if (commitment === 'finalized' && info.confirmationStatus === 'finalized') {
+        if (
+          commitment === "finalized" &&
+          info.confirmationStatus === "finalized"
+        ) {
           return { signature, slot: info.slot };
         }
       }
       await sleep(pollIntervalMs);
     }
 
-    return { signature, err: 'confirmation-timeout' };
+    return { signature, err: "confirmation-timeout" };
   }
 
   async simulateRawTx(serializedTx: Uint8Array): Promise<unknown> {

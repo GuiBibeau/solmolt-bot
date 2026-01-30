@@ -1,12 +1,12 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import YAML from 'yaml';
-import { z } from 'zod';
+import fs from "node:fs";
+import path from "node:path";
+import YAML from "yaml";
+import { z } from "zod";
 
 const PolicySchema = z.object({
   killSwitch: z.boolean().default(false),
   allowedMints: z.array(z.string()).default([]),
-  maxTradeAmountLamports: z.string().default('0'),
+  maxTradeAmountLamports: z.string().default("0"),
   maxSlippageBps: z.number().int().default(50),
   maxPriceImpactPct: z.number().default(1),
   cooldownSeconds: z.number().int().default(30),
@@ -23,13 +23,15 @@ const ConfigSchema = z.object({
   }),
   jupiter: z.object({
     apiKey: z.string().min(1),
-    baseUrl: z.string().default('https://api.jup.ag'),
+    baseUrl: z.string().default("https://api.jup.ag"),
   }),
   solana: z.object({
-    sdkMode: z.enum(['web3']).default('web3'),
+    sdkMode: z.enum(["web3"]).default("web3"),
   }),
   llm: z.object({
-    provider: z.enum(['openai_chat', 'openai_responses', 'anthropic_messages']).default('openai_chat'),
+    provider: z
+      .enum(["openai_chat", "openai_responses", "anthropic_messages"])
+      .default("openai_chat"),
     baseUrl: z.string().min(1),
     apiKey: z.string().min(1),
     model: z.string().min(1),
@@ -47,28 +49,30 @@ const ConfigSchema = z.object({
       .optional(),
   }),
   gateway: z.object({
-    bind: z.string().default('127.0.0.1'),
+    bind: z.string().default("127.0.0.1"),
     port: z.number().int().default(8787),
     authToken: z.string().min(1),
   }),
   tools: z
     .object({
-      skillsDir: z.string().default('skills'),
+      skillsDir: z.string().default("skills"),
     })
     .default({}),
-  notify: z.object({
-    webhookUrl: z.string().optional(),
-  }).default({}),
+  notify: z
+    .object({
+      webhookUrl: z.string().optional(),
+    })
+    .default({}),
   policy: PolicySchema,
 });
 
-export type SolmoltConfig = z.infer<typeof ConfigSchema>;
+export type RalphConfig = z.infer<typeof ConfigSchema>;
 
 function parseConfigFile(filePath: string): unknown {
   if (!fs.existsSync(filePath)) return {};
-  const raw = fs.readFileSync(filePath, 'utf8');
+  const raw = fs.readFileSync(filePath, "utf8");
   if (!raw.trim()) return {};
-  if (filePath.endsWith('.json')) {
+  if (filePath.endsWith(".json")) {
     return JSON.parse(raw);
   }
   return YAML.parse(raw);
@@ -76,7 +80,7 @@ function parseConfigFile(filePath: string): unknown {
 
 function envBool(value?: string): boolean | undefined {
   if (!value) return undefined;
-  return value.toLowerCase() === 'true' || value === '1';
+  return value.toLowerCase() === "true" || value === "1";
 }
 
 function envNumber(value?: string): number | undefined {
@@ -85,11 +89,14 @@ function envNumber(value?: string): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-function deepMerge(base: Record<string, unknown>, override: Record<string, unknown>): Record<string, unknown> {
+function deepMerge(
+  base: Record<string, unknown>,
+  override: Record<string, unknown>,
+): Record<string, unknown> {
   const output: Record<string, unknown> = { ...base };
   for (const [key, value] of Object.entries(override)) {
     if (value === undefined) continue;
-    if (value && typeof value === 'object' && !Array.isArray(value)) {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
       const baseValue = (base[key] ?? {}) as Record<string, unknown>;
       output[key] = deepMerge(baseValue, value as Record<string, unknown>);
     } else {
@@ -99,10 +106,10 @@ function deepMerge(base: Record<string, unknown>, override: Record<string, unkno
   return output;
 }
 
-export function loadConfig(configPath?: string): SolmoltConfig {
+export function loadConfig(configPath?: string): RalphConfig {
   const resolvedPath = configPath
     ? path.resolve(configPath)
-    : path.resolve(process.env.SOLMOLT_CONFIG || 'solmolt.config.yaml');
+    : path.resolve(process.env.RALPH_CONFIG || "ralph.config.yaml");
 
   const fileConfig = parseConfigFile(resolvedPath) as Record<string, unknown>;
 

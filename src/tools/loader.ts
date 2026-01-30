@@ -1,23 +1,29 @@
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import { pathToFileURL } from 'node:url';
-import type { ToolDefinition, ToolRegistry } from './registry.js';
-import { info, warn } from '../util/logger.js';
+import fs from "node:fs/promises";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+import { info, warn } from "../util/logger.js";
+import type { ToolDefinition, ToolRegistry } from "./registry.js";
 
 export type SkillModule = {
   default?: ToolDefinition | (() => ToolDefinition);
   tool?: ToolDefinition | (() => ToolDefinition);
 };
 
-const SUPPORTED_EXTS = new Set(['.ts', '.js', '.mjs']);
+const SUPPORTED_EXTS = new Set([".ts", ".js", ".mjs"]);
 
-export async function loadSkillsFromDir(registry: ToolRegistry, dir: string): Promise<void> {
+export async function loadSkillsFromDir(
+  registry: ToolRegistry,
+  dir: string,
+): Promise<void> {
   const resolved = path.resolve(dir);
   let entries: string[] = [];
   try {
     entries = await fs.readdir(resolved);
   } catch (err) {
-    warn('skills directory missing or unreadable', { dir: resolved, err: String(err) });
+    warn("skills directory missing or unreadable", {
+      dir: resolved,
+      err: String(err),
+    });
     return;
   }
 
@@ -29,13 +35,13 @@ export async function loadSkillsFromDir(registry: ToolRegistry, dir: string): Pr
       const mod = (await import(pathToFileURL(fullPath).href)) as SkillModule;
       const tool = resolveTool(mod);
       if (!tool) {
-        warn('skill file has no tool export', { file: fullPath });
+        warn("skill file has no tool export", { file: fullPath });
         continue;
       }
       registry.register(tool);
-      info('skill loaded', { name: tool.name, file: fullPath });
+      info("skill loaded", { name: tool.name, file: fullPath });
     } catch (err) {
-      warn('failed to load skill', { file: fullPath, err: String(err) });
+      warn("failed to load skill", { file: fullPath, err: String(err) });
     }
   }
 }
@@ -43,7 +49,7 @@ export async function loadSkillsFromDir(registry: ToolRegistry, dir: string): Pr
 function resolveTool(mod: SkillModule): ToolDefinition | null {
   const candidate = mod.default ?? mod.tool;
   if (!candidate) return null;
-  if (typeof candidate === 'function') {
+  if (typeof candidate === "function") {
     return candidate();
   }
   return candidate;

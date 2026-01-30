@@ -1,6 +1,6 @@
-import { redact } from './redaction.js';
+import { redact } from "./redaction.js";
 
-type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+type LogLevel = "debug" | "info" | "warn" | "error";
 
 const LEVELS: Record<LogLevel, number> = {
   debug: 10,
@@ -10,11 +10,15 @@ const LEVELS: Record<LogLevel, number> = {
 };
 
 function currentLevel(): number {
-  const level = (process.env.LOG_LEVEL || 'info').toLowerCase() as LogLevel;
+  const level = (process.env.LOG_LEVEL || "info").toLowerCase() as LogLevel;
   return LEVELS[level] ?? LEVELS.info;
 }
 
-export function log(level: LogLevel, message: string, meta?: Record<string, unknown>): void {
+export function log(
+  level: LogLevel,
+  message: string,
+  meta?: Record<string, unknown>,
+): void {
   if (LEVELS[level] < currentLevel()) return;
   const entry = {
     ts: new Date().toISOString(),
@@ -23,9 +27,9 @@ export function log(level: LogLevel, message: string, meta?: Record<string, unkn
     ...(meta ? { meta: redact(meta) } : {}),
   };
   const line = JSON.stringify(entry);
-  if (level === 'error') {
+  if (level === "error") {
     console.error(line);
-  } else if (level === 'warn') {
+  } else if (level === "warn") {
     console.warn(line);
   } else {
     console.log(line);
@@ -33,17 +37,17 @@ export function log(level: LogLevel, message: string, meta?: Record<string, unkn
 }
 
 export function debug(message: string, meta?: Record<string, unknown>): void {
-  log('debug', message, meta);
+  log("debug", message, meta);
 }
 
 export function info(message: string, meta?: Record<string, unknown>): void {
-  log('info', message, meta);
+  log("info", message, meta);
 }
 
 export function warn(message: string, meta?: Record<string, unknown>): void {
-  log('warn', message, meta);
+  log("warn", message, meta);
 }
 
 export function error(message: string, meta?: Record<string, unknown>): void {
-  log('error', message, meta);
+  log("error", message, meta);
 }

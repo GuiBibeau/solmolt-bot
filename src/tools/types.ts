@@ -7,7 +7,12 @@ export type QuoteSummary = {
 
 export type BalancesSnapshot = {
   solLamports: string;
-  tokens: { mint: string; amountRaw: string; decimals: number; uiAmount: number | null }[];
+  tokens: {
+    mint: string;
+    amountRaw: string;
+    decimals: number;
+    uiAmount: number | null;
+  }[];
 };
 
 export type PolicySnapshot = {

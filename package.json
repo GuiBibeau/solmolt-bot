@@ -1,29 +1,31 @@
 {
-  "name": "solmolt-bot",
+  "name": "serious-trader-ralph",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "bin": {
-    "solmolt": "dist/bin/solmolt.js"
+    "ralph": "dist/bin/ralph.js"
   },
   "scripts": {
-    "dev": "bun run src/bin/solmolt.ts",
-    "build": "bun build src/bin/solmolt.ts --outdir dist/bin --target node --format esm",
-    "start": "bun dist/bin/solmolt.js",
-    "gateway": "bun run src/bin/solmolt.ts gateway start",
-    "gateway:stop": "bun run src/bin/solmolt.ts gateway stop",
-    "gateway:restart": "bun run src/bin/solmolt.ts gateway restart",
-    "status": "bun run src/bin/solmolt.ts status",
-    "autopilot:start": "bun run src/bin/solmolt.ts autopilot start",
-    "autopilot:stop": "bun run src/bin/solmolt.ts autopilot stop",
-    "tool": "bun run src/bin/solmolt.ts tool",
-    "doctor": "bun run src/bin/solmolt.ts doctor",
-    "update": "bun run src/bin/solmolt.ts update",
-    "agent:message": "bun run src/bin/solmolt.ts agent:message",
-    "help": "bun run src/bin/solmolt.ts --help",
+    "dev": "bun run src/bin/ralph.ts",
+    "build": "bun build src/bin/ralph.ts --outdir dist/bin --target node --format esm",
+    "start": "bun dist/bin/ralph.js",
+    "gateway": "bun run src/bin/ralph.ts gateway start",
+    "gateway:stop": "bun run src/bin/ralph.ts gateway stop",
+    "gateway:restart": "bun run src/bin/ralph.ts gateway restart",
+    "status": "bun run src/bin/ralph.ts status",
+    "autopilot:start": "bun run src/bin/ralph.ts autopilot start",
+    "autopilot:stop": "bun run src/bin/ralph.ts autopilot stop",
+    "tool": "bun run src/bin/ralph.ts tool",
+    "doctor": "bun run src/bin/ralph.ts doctor",
+    "update": "bun run src/bin/ralph.ts update",
+    "agent:message": "bun run src/bin/ralph.ts agent:message",
+    "help": "bun run src/bin/ralph.ts --help",
     "test": "bun test",
     "test:unit": "bun test tests/unit",
-    "test:integration": "bun test tests/integration"
+    "test:integration": "bun test tests/integration",
+    "lint": "biome check .",
+    "lint:fix": "biome check . --write"
   },
   "dependencies": {
     "@solana/web3.js": "^1.98.4",
@@ -34,6 +36,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.3.13",
     "@types/node": "^20.14.2",
     "@types/ws": "^8.5.10",
     "typescript": "^5.5.4"

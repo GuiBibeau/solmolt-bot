@@ -1,4 +1,4 @@
-export type AgentTickReason = 'timer' | 'operator' | 'recovery';
+export type AgentTickReason = "timer" | "operator" | "recovery";
 
 export type AgentTickResult = {
   actionsTaken: string[];
@@ -12,5 +12,8 @@ export type AgentHandle = {
 };
 
 export type AgentControl = {
-  message: (content: string, triggerTick?: boolean) => Promise<AgentTickResult | { ok: true }>;
+  message: (
+    content: string,
+    triggerTick?: boolean,
+  ) => Promise<AgentTickResult | { ok: true }>;
 };

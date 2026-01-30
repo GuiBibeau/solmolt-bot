@@ -1,10 +1,9 @@
-import { WebSocketServer } from 'ws';
-import type { SolmoltConfig } from '../config/config.js';
-import { ToolRegistry } from '../tools/registry.js';
-import type { ToolContext } from '../tools/registry.js';
-import { SessionJournal, TradeJournal } from '../journal/index.js';
-import { randomId } from '../util/id.js';
-import { info, warn, error } from '../util/logger.js';
+import { WebSocketServer } from "ws";
+import type { RalphConfig } from "../config/config.js";
+import { SessionJournal } from "../journal/index.js";
+import type { ToolContext, ToolRegistry } from "../tools/registry.js";
+import { randomId } from "../util/id.js";
+import { error, info, warn } from "../util/logger.js";
 
 export type GatewayState = {
   autopilotEnabled: boolean;
@@ -14,7 +13,7 @@ export type GatewayState = {
 
 type ConnectionContext = {
   sessionId: string;
-  role: 'operator';
+  role: "operator";
   journal: SessionJournal;
 };
 
@@ -32,9 +31,9 @@ export class GatewayServer {
   private state: GatewayState;
 
   constructor(
-    private readonly config: SolmoltConfig,
+    private readonly config: RalphConfig,
     private readonly registry: ToolRegistry,
-    private readonly ctx: ToolContext
+    private readonly ctx: ToolContext,
   ) {
     this.state = {
       autopilotEnabled: config.autopilot.enabled,
@@ -46,48 +45,50 @@ export class GatewayServer {
   start(): void {
     const { bind, port } = this.config.gateway;
     this.wss = new WebSocketServer({ host: bind, port });
-    info('gateway listening', { bind, port });
+    info("gateway listening", { bind, port });
 
-    this.wss.on('connection', (socket) => {
+    this.wss.on("connection", (socket) => {
       let connected = false;
       let connCtx: ConnectionContext | null = null;
 
-      socket.on('message', async (raw) => {
+      socket.on("message", async (raw) => {
         let msg: GatewayMessage;
         try {
           msg = JSON.parse(raw.toString());
         } catch (err) {
-          warn('invalid message', { err: String(err) });
-          socket.send(JSON.stringify({ error: 'invalid_json' }));
+          warn("invalid message", { err: String(err) });
+          socket.send(JSON.stringify({ error: "invalid_json" }));
           return;
         }
 
         if (!connected) {
-          if (msg.method !== 'connect') {
-            socket.send(JSON.stringify({ error: 'expected_connect' }));
+          if (msg.method !== "connect") {
+            socket.send(JSON.stringify({ error: "expected_connect" }));
             socket.close();
             return;
           }
-          const token = String(msg.params?.token ?? '');
-          const role = String(msg.params?.role ?? '');
+          const token = String(msg.params?.token ?? "");
+          const role = String(msg.params?.role ?? "");
           if (token !== this.config.gateway.authToken) {
-            socket.send(JSON.stringify({ id: msg.id, error: 'unauthorized' }));
+            socket.send(JSON.stringify({ id: msg.id, error: "unauthorized" }));
             socket.close();
             return;
           }
-          if (role !== 'operator') {
-            socket.send(JSON.stringify({ id: msg.id, error: 'invalid_role' }));
+          if (role !== "operator") {
+            socket.send(JSON.stringify({ id: msg.id, error: "invalid_role" }));
             socket.close();
             return;
           }
           connected = true;
-          const sessionId = randomId('session');
+          const sessionId = randomId("session");
           connCtx = {
             sessionId,
-            role: 'operator',
+            role: "operator",
             journal: new SessionJournal(sessionId),
           };
-          socket.send(JSON.stringify({ id: msg.id, result: { ok: true, role } }));
+          socket.send(
+            JSON.stringify({ id: msg.id, result: { ok: true, role } }),
+          );
           return;
         }
 
@@ -108,55 +109,59 @@ export class GatewayServer {
     this.wss?.close();
   }
 
-  private async handleMessage(socket: WebSocket, connCtx: ConnectionContext, msg: GatewayMessage): Promise<void> {
+  private async handleMessage(
+    socket: WebSocket,
+    connCtx: ConnectionContext,
+    msg: GatewayMessage,
+  ): Promise<void> {
     let response: unknown;
     let errorCode: string | undefined;
     try {
       switch (msg.method) {
-        case 'status': {
+        case "status": {
           response = {
             ...this.state,
             publicKey: this.ctx.solana.getPublicKey(),
           };
           break;
         }
-        case 'autopilot.start': {
+        case "autopilot.start": {
           this.state.autopilotEnabled = true;
           this.startAutopilot();
           response = { ok: true };
           break;
         }
-        case 'autopilot.stop': {
+        case "autopilot.stop": {
           this.state.autopilotEnabled = false;
           this.stopAutopilot();
           response = { ok: true };
           break;
         }
-        case 'gateway.shutdown': {
+        case "gateway.shutdown": {
           response = { ok: true };
           socket.send(JSON.stringify({ id: msg.id, result: response }));
           setTimeout(() => process.exit(0), 50);
           return;
         }
-        case 'gateway.restart': {
+        case "gateway.restart": {
           response = { ok: true };
           socket.send(JSON.stringify({ id: msg.id, result: response }));
           setTimeout(() => process.exit(0), 50);
           return;
         }
-        case 'tool.invoke': {
-          const name = String(msg.params?.name ?? '');
+        case "tool.invoke": {
+          const name = String(msg.params?.name ?? "");
           const input = (msg.params?.input ?? {}) as Record<string, unknown>;
           const toolCtx = { ...this.ctx, sessionJournal: connCtx.journal };
           response = await this.registry.invoke(name, toolCtx, input);
           break;
         }
         default:
-          errorCode = 'unknown_method';
+          errorCode = "unknown_method";
       }
     } catch (err) {
-      error('gateway error', { err: String(err) });
-      errorCode = 'server_error';
+      error("gateway error", { err: String(err) });
+      errorCode = "server_error";
     }
 
     if (errorCode) {
@@ -166,7 +171,7 @@ export class GatewayServer {
     }
 
     await connCtx.journal.append({
-      type: 'gateway',
+      type: "gateway",
       method: msg.method,
       ts: new Date().toISOString(),
     });
@@ -177,13 +182,13 @@ export class GatewayServer {
     this.autopilotTimer = setInterval(() => {
       if (this.ctx.agent) {
         this.ctx.agent
-          .tick('timer')
-          .catch((err) => warn('autopilot tick failed', { err: String(err) }));
+          .tick("timer")
+          .catch((err) => warn("autopilot tick failed", { err: String(err) }));
         return;
       }
       this.registry
-        .invoke('system.autopilot_tick', this.ctx, { reason: 'timer' })
-        .catch((err) => warn('autopilot tick failed', { err: String(err) }));
+        .invoke("system.autopilot_tick", this.ctx, { reason: "timer" })
+        .catch((err) => warn("autopilot tick failed", { err: String(err) }));
     }, this.state.autopilotIntervalMs);
   }
 
@@ -195,4 +200,4 @@ export class GatewayServer {
 }
 
 // ws types don't export in ESM for type-only
-type WebSocket = import('ws').WebSocket;
+type WebSocket = import("ws").WebSocket;

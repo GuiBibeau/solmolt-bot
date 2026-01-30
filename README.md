@@ -1,4 +1,4 @@
-# SolMolt Core (MVP)
+# Serious Trader Ralph (MVP)
 
 A customizable, long‑running Solana trading bot you can deploy. It ships with a WebSocket gateway, CLI operator, tool registry, and hot‑wallet custody. This repo is **web3‑only** right now.
 
@@ -16,9 +16,9 @@ Active development: expect rapid iteration, feature growth, and occasional break
 bun install
 
 # 2) create your config
-cp solmolt.config.example.yaml solmolt.config.yaml
+cp ralph.config.example.yaml ralph.config.yaml
 
-# 3) edit solmolt.config.yaml
+# 3) edit ralph.config.yaml
 # - set wallet.privateKey (or keyfilePath)
 # - set jupiter.apiKey
 # - set llm.baseUrl / llm.apiKey / llm.model
@@ -48,18 +48,18 @@ bun run update                   # git pull + bun install
 
 ## Paths & entrypoints
 
-- CLI entry: `src/bin/solmolt.ts`
+- CLI entry: `src/bin/ralph.ts`
 - Gateway server: `src/gateway/server.ts`
 - Tools registry: `src/tools/registry.ts`
 - Tools list: `src/tools/tools.ts`
 - Skills folder (auto‑loaded): `skills/`
 - Web3 adapter: `src/solana/web3_adapter.ts`
-- Config file (default): `solmolt.config.yaml`
+- Config file (default): `ralph.config.yaml`
 
 You can override the config path with:
 
 ```bash
-SOLMOLT_CONFIG=/path/to/solmolt.config.yaml bun run gateway
+RALPH_CONFIG=/path/to/ralph.config.yaml bun run gateway
 ```
 
 ## Config notes
@@ -114,7 +114,7 @@ bun test
 
 ## Security reminders
 
-- **Do not commit** `solmolt.config.yaml`. It’s in `.gitignore`.
+- **Do not commit** `ralph.config.yaml`. It’s in `.gitignore`.
 - Keep the gateway bound to `127.0.0.1` and access it via SSH tunnel.
 - Keep minimal funds in the hot wallet.
 

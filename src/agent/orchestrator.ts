@@ -1,8 +1,8 @@
-import type { ToolRegistry, ToolContext } from '../tools/registry.js';
-import type { AgentTickReason, AgentTickResult } from './types.js';
-import { info, warn } from '../util/logger.js';
-import { createLlmClient } from '../llm/index.js';
-import type { LlmClient, LlmToolCall } from '../llm/types.js';
+import { createLlmClient } from "../llm/index.js";
+import type { LlmClient, LlmMessage, LlmToolCall } from "../llm/types.js";
+import type { ToolContext, ToolRegistry } from "../tools/registry.js";
+import { info, warn } from "../util/logger.js";
+import type { AgentTickReason, AgentTickResult } from "./types.js";
 
 export type AutopilotPlan = {
   inputMint: string;
@@ -15,7 +15,7 @@ type AgentState = {
   inFlight: boolean;
   lastTradeAtMs?: number;
   tickCount: number;
-  messages: Record<string, unknown>[];
+  messages: LlmMessage[];
 };
 
 export class AgentOrchestrator {
@@ -26,12 +26,15 @@ export class AgentOrchestrator {
   };
   private readonly llm: LlmClient;
 
-  constructor(private readonly registry: ToolRegistry, private readonly ctx: ToolContext) {
+  constructor(
+    private readonly registry: ToolRegistry,
+    private readonly ctx: ToolContext,
+  ) {
     this.llm = createLlmClient(ctx.config.llm);
   }
 
   injectMessage(content: string): void {
-    this.state.messages.push({ role: 'user', content });
+    this.state.messages.push({ role: "user", content });
   }
 
   async tick(reason: AgentTickReason): Promise<AgentTickResult> {
@@ -39,15 +42,15 @@ export class AgentOrchestrator {
       return {
         actionsTaken: [],
         nextTickInMs: this.ctx.config.autopilot.intervalMs,
-        skipped: 'inflight',
+        skipped: "inflight",
       };
     }
 
-    if (!this.ctx.config.autopilot.enabled && reason === 'timer') {
+    if (!this.ctx.config.autopilot.enabled && reason === "timer") {
       return {
         actionsTaken: [],
         nextTickInMs: this.ctx.config.autopilot.intervalMs,
-        skipped: 'autopilot-disabled',
+        skipped: "autopilot-disabled",
       };
     }
 
@@ -60,8 +63,14 @@ export class AgentOrchestrator {
       const plan = this.ctx.config.autopilot.plan as AutopilotPlan | undefined;
 
       if (policy.killSwitch) {
-        await this.notify('warn', 'Kill switch enabled; skipping tick.', { reason });
-        return { actionsTaken: actions, nextTickInMs: this.ctx.config.autopilot.intervalMs, skipped: 'kill-switch' };
+        await this.notify("warn", "Kill switch enabled; skipping tick.", {
+          reason,
+        });
+        return {
+          actionsTaken: actions,
+          nextTickInMs: this.ctx.config.autopilot.intervalMs,
+          skipped: "kill-switch",
+        };
       }
 
       const now = Date.now();
@@ -71,7 +80,7 @@ export class AgentOrchestrator {
           return {
             actionsTaken: actions,
             nextTickInMs: this.ctx.config.autopilot.intervalMs,
-            skipped: 'cooldown',
+            skipped: "cooldown",
           };
         }
       }
@@ -80,7 +89,7 @@ export class AgentOrchestrator {
       const tools = this.registry.listSchemas(this.ctx.config);
 
       this.state.messages.push({
-        role: 'user',
+        role: "user",
         content: `Tick reason: ${reason}. Decide whether to take action. Use tools when needed.`,
       });
 
@@ -89,10 +98,13 @@ export class AgentOrchestrator {
         const response = await this.llm.generate(this.state.messages, tools);
         this.state.messages.push(response.message);
         await this.ctx.sessionJournal.append({
-          type: 'llm',
-          role: 'assistant',
+          type: "llm",
+          role: "assistant",
           content: response.text,
-          toolCalls: response.toolCalls?.map((call) => ({ id: call.id, name: call.name })),
+          toolCalls: response.toolCalls?.map((call) => ({
+            id: call.id,
+            name: call.name,
+          })),
           ts: new Date().toISOString(),
         });
 
@@ -100,13 +112,19 @@ export class AgentOrchestrator {
           break;
         }
 
-        const toolResults = await this.executeToolCalls(response.toolCalls, actions);
+        const toolResults = await this.executeToolCalls(
+          response.toolCalls,
+          actions,
+        );
         this.state.messages.push(...toolResults);
       }
 
-      return { actionsTaken: actions, nextTickInMs: this.ctx.config.autopilot.intervalMs };
+      return {
+        actionsTaken: actions,
+        nextTickInMs: this.ctx.config.autopilot.intervalMs,
+      };
     } catch (err) {
-      warn('agent tick failed', { err: String(err) });
+      warn("agent tick failed", { err: String(err) });
       return {
         actionsTaken: [],
         nextTickInMs: this.ctx.config.autopilot.intervalMs,
@@ -117,46 +135,66 @@ export class AgentOrchestrator {
     }
   }
 
-  private async notify(level: 'info' | 'warn' | 'error', message: string, metadata?: Record<string, unknown>): Promise<void> {
+  private async notify(
+    level: "info" | "warn" | "error",
+    message: string,
+    metadata?: Record<string, unknown>,
+  ): Promise<void> {
     try {
-      await this.registry.invoke('notify.emit', this.ctx, { level, message, metadata });
+      await this.registry.invoke("notify.emit", this.ctx, {
+        level,
+        message,
+        metadata,
+      });
     } catch (err) {
-      info('notify failed', { err: String(err) });
+      info("notify failed", { err: String(err) });
     }
   }
 
   private ensureSystemPrompt(plan?: AutopilotPlan): void {
-    if (this.state.messages.find((msg) => typeof msg['role'] === 'string' && msg['role'] === 'system')) {
+    if (
+      this.state.messages.find((msg) => {
+        const role = (msg as { role?: unknown }).role;
+        return typeof role === "string" && role === "system";
+      })
+    ) {
       return;
     }
     const policy = this.ctx.config.policy;
     const lines = [
-      'You are SolMolt, an autonomous Solana trading agent.',
-      'Use the available tools to inspect balances, request quotes, check risk, and execute swaps.',
-      'Never ask for private keys or API keys. Assume tools handle signing.',
+      "You are Serious Trader Ralph, an autonomous Solana trading agent.",
+      "Use the available tools to inspect balances, request quotes, check risk, and execute swaps.",
+      "Never ask for private keys or API keys. Assume tools handle signing.",
       `Policy: killSwitch=${policy.killSwitch}, maxSlippageBps=${policy.maxSlippageBps}, maxPriceImpactPct=${policy.maxPriceImpactPct}, cooldownSeconds=${policy.cooldownSeconds}.`,
-      policy.allowedMints.length > 0 ? `Allowed mints: ${policy.allowedMints.join(', ')}` : 'Allowed mints: any',
+      policy.allowedMints.length > 0
+        ? `Allowed mints: ${policy.allowedMints.join(", ")}`
+        : "Allowed mints: any",
       plan
         ? `Preferred plan: inputMint=${plan.inputMint}, outputMint=${plan.outputMint}, amount=${plan.amount}, slippageBps=${plan.slippageBps}.`
-        : 'No preferred plan configured; decide dynamically.',
+        : "No preferred plan configured; decide dynamically.",
     ];
     this.state.messages.unshift({
-      role: 'system',
-      content: lines.join('\n'),
+      role: "system",
+      content: lines.join("\n"),
     });
   }
 
-  private async executeToolCalls(toolCalls: LlmToolCall[], actions: string[]): Promise<Record<string, unknown>[]> {
-    const toolResults: Record<string, unknown>[] = [];
+  private async executeToolCalls(
+    toolCalls: LlmToolCall[],
+    actions: string[],
+  ): Promise<LlmMessage[]> {
+    const toolResults: LlmMessage[] = [];
     for (const call of toolCalls) {
       let args: Record<string, unknown> = {};
       try {
-        args = JSON.parse(call.arguments || '{}') as Record<string, unknown>;
-      } catch (err) {
-        await this.notify('warn', 'Failed to parse tool arguments.', { tool: call.name });
+        args = JSON.parse(call.arguments || "{}") as Record<string, unknown>;
+      } catch (_err) {
+        await this.notify("warn", "Failed to parse tool arguments.", {
+          tool: call.name,
+        });
       }
       await this.ctx.sessionJournal.append({
-        type: 'tool_call',
+        type: "tool_call",
         tool: call.name,
         args,
         ts: new Date().toISOString(),
@@ -164,11 +202,11 @@ export class AgentOrchestrator {
       const result = await this.registry.invoke(call.name, this.ctx, args);
       actions.push(call.name);
       toolResults.push({
-        role: 'tool',
+        role: "tool",
         tool_call_id: call.id,
         content: JSON.stringify(result),
       });
-      if (call.name === 'trade.jupiter_swap') {
+      if (call.name === "trade.jupiter_swap") {
         this.state.lastTradeAtMs = Date.now();
       }
     }

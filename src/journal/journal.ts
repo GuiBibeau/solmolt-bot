@@ -1,9 +1,12 @@
-import path from 'node:path';
-import { appendJsonl } from '../util/jsonl.js';
-import { redact } from '../util/redaction.js';
+import path from "node:path";
+import { appendJsonl } from "../util/jsonl.js";
+import { redact } from "../util/redaction.js";
 
 export class SessionJournal {
-  constructor(private readonly sessionId: string, private readonly baseDir = 'sessions') {}
+  constructor(
+    private readonly sessionId: string,
+    private readonly baseDir = "sessions",
+  ) {}
 
   async append(entry: Record<string, unknown>): Promise<void> {
     const filePath = path.join(this.baseDir, `${this.sessionId}.jsonl`);
@@ -12,7 +15,7 @@ export class SessionJournal {
 }
 
 export class TradeJournal {
-  constructor(private readonly baseDir = 'trades') {}
+  constructor(private readonly baseDir = "trades") {}
 
   async append(entry: Record<string, unknown>): Promise<void> {
     const date = new Date().toISOString().slice(0, 10);
