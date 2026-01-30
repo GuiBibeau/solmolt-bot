@@ -65,9 +65,15 @@ const AgentMessageSchema = z.object({
   triggerTick: z.boolean().optional(),
 });
 
+const PricesSchema = z.object({
+  mints: z.array(z.string().min(1)).min(1),
+  venue: z.string().optional(),
+});
+
 export const TOOL_VALIDATORS: Record<string, z.ZodTypeAny> = {
   "wallet.get_balances": BalancesSchema,
   "market.jupiter_quote": QuoteSchema,
+  "market.get_prices": PricesSchema,
   "risk.check_trade": RiskSchema,
   "trade.jupiter_swap": TradeSchema,
   "notify.emit": NotifySchema,

@@ -119,6 +119,23 @@ integrationTest("market.jupiter_quote (integration)", async () => {
   expect(result.summary.outAmount).toBeTruthy();
 });
 
+integrationTest("market.get_prices (integration)", async () => {
+  const { registry, ctx } = setup();
+  const priceMint =
+    process.env.PRICE_MINT ||
+    "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+
+  const result = (await registry.invoke("market.get_prices", ctx, {
+    mints: [priceMint],
+    venue: "best",
+  })) as {
+    prices: Array<{ mint: string; bid: string | null; ask: string | null }>;
+  };
+
+  expect(result.prices.length).toBe(1);
+  expect(result.prices[0].mint).toBe(priceMint);
+});
+
 swapTest("swap simulation (build + sign + simulate)", async () => {
   const { registry, ctx, jupiter, config } = setup();
   if (!config.wallet.privateKey && !config.wallet.keyfilePath) {

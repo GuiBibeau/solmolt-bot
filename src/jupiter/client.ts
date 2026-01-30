@@ -10,6 +10,11 @@ export type QuoteRequest = {
   outputMint: string;
   amount: string;
   slippageBps: number;
+  swapMode?: "ExactIn" | "ExactOut";
+  dexes?: string[];
+  excludeDexes?: string[];
+  onlyDirectRoutes?: boolean;
+  restrictIntermediateTokens?: boolean;
 };
 
 export type QuoteResponse = JupiterQuoteResponse;
@@ -19,6 +24,14 @@ export type SwapResponse = JupiterSwapResponse;
 export type SwapRequest = {
   quoteResponse: QuoteResponse;
   userPublicKey: string;
+};
+
+export type TokenInfo = {
+  id: string;
+  name?: string;
+  symbol?: string;
+  decimals: number;
+  usdPrice?: number | null;
 };
 
 export class JupiterClient {
@@ -35,6 +48,25 @@ export class JupiterClient {
     url.searchParams.set("outputMint", request.outputMint);
     url.searchParams.set("amount", request.amount);
     url.searchParams.set("slippageBps", request.slippageBps.toString());
+    if (request.swapMode) url.searchParams.set("swapMode", request.swapMode);
+    if (request.dexes && request.dexes.length > 0) {
+      url.searchParams.set("dexes", request.dexes.join(","));
+    }
+    if (request.excludeDexes && request.excludeDexes.length > 0) {
+      url.searchParams.set("excludeDexes", request.excludeDexes.join(","));
+    }
+    if (request.onlyDirectRoutes !== undefined) {
+      url.searchParams.set(
+        "onlyDirectRoutes",
+        request.onlyDirectRoutes ? "true" : "false",
+      );
+    }
+    if (request.restrictIntermediateTokens !== undefined) {
+      url.searchParams.set(
+        "restrictIntermediateTokens",
+        request.restrictIntermediateTokens ? "true" : "false",
+      );
+    }
 
     const response = await fetch(url.toString(), {
       method: "GET",
@@ -82,5 +114,40 @@ export class JupiterClient {
 
     const data = JupiterSwapResponseSchema.parse(await response.json());
     return data;
+  }
+
+  async programIdToLabel(): Promise<Record<string, string>> {
+    const url = new URL("/swap/v1/program-id-to-label", this.baseUrl);
+    const response = await fetch(url.toString(), {
+      method: "GET",
+      headers: {
+        "x-api-key": this.apiKey,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Jupiter program-id-to-label failed: ${response.status}`,
+      );
+    }
+
+    return (await response.json()) as Record<string, string>;
+  }
+
+  async searchTokens(query: string): Promise<TokenInfo[]> {
+    const url = new URL("/tokens/v2/search", this.baseUrl);
+    url.searchParams.set("query", query);
+    const response = await fetch(url.toString(), {
+      method: "GET",
+      headers: {
+        "x-api-key": this.apiKey,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Jupiter token search failed: ${response.status}`);
+    }
+
+    return (await response.json()) as TokenInfo[];
   }
 }

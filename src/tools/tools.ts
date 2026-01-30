@@ -1,4 +1,4 @@
-import type { JupiterClient } from "../jupiter/client.js";
+import type { JupiterClient, TokenInfo } from "../jupiter/client.js";
 import { evaluateTrade } from "../policy/index.js";
 import { info } from "../util/logger.js";
 import type { ToolContext, ToolRegistry } from "./registry.js";
@@ -12,6 +12,220 @@ export function registerDefaultTools(
   registry: ToolRegistry,
   jupiter: JupiterClient,
 ): void {
+  const tokenCache = new Map<string, TokenInfo | null>();
+  let dexLabelCache: string[] | null = null;
+  const solMint = "So11111111111111111111111111111111111111112";
+  const solDecimals = 9;
+  const priceDecimals = 9;
+  const defaultSlippageBps = 50;
+  const defaultSolNotional = 1_000_000_000n;
+
+  const getDexLabels = async (): Promise<string[]> => {
+    if (dexLabelCache) return dexLabelCache;
+    const mapping = await jupiter.programIdToLabel();
+    dexLabelCache = Array.from(new Set(Object.values(mapping))).filter(Boolean);
+    return dexLabelCache;
+  };
+
+  const resolveVenueDexes = async (
+    venueInput?: string,
+  ): Promise<{ venueUsed: string; dexes?: string[] }> => {
+    const normalized = (venueInput || "best").trim().toLowerCase();
+    if (normalized === "best" || normalized === "jupiter") {
+      return { venueUsed: "jupiter" };
+    }
+    const labels = await getDexLabels().catch(() => []);
+    if (normalized === "raydium" || normalized === "orca") {
+      const prefix = normalized === "raydium" ? "Raydium" : "Orca";
+      const matched = labels.filter((label) => label.startsWith(prefix));
+      if (matched.length > 0) {
+        return { venueUsed: normalized, dexes: matched };
+      }
+      return { venueUsed: normalized, dexes: [prefix] };
+    }
+    return {
+      venueUsed: venueInput ? venueInput.trim() : normalized,
+      dexes: venueInput ? [venueInput] : undefined,
+    };
+  };
+
+  const chunk = <T,>(items: T[], size: number): T[][] => {
+    if (items.length <= size) return [items];
+    const output: T[][] = [];
+    for (let i = 0; i < items.length; i += size) {
+      output.push(items.slice(i, i + size));
+    }
+    return output;
+  };
+
+  const getTokenInfoMap = async (
+    mints: string[],
+  ): Promise<Map<string, TokenInfo | null>> => {
+    const output = new Map<string, TokenInfo | null>();
+    const missing = mints.filter((mint) => !tokenCache.has(mint));
+    if (missing.length > 0) {
+      const chunks = chunk(missing, 100);
+      for (const batch of chunks) {
+        const results = await jupiter.searchTokens(batch.join(","));
+        const seen = new Set<string>();
+        for (const token of results) {
+          tokenCache.set(token.id, token);
+          seen.add(token.id);
+        }
+        for (const mint of batch) {
+          if (!seen.has(mint)) {
+            tokenCache.set(mint, null);
+          }
+        }
+      }
+    }
+    for (const mint of mints) {
+      output.set(mint, tokenCache.get(mint) ?? null);
+    }
+    return output;
+  };
+
+  const formatScaled = (value: bigint, decimals: number): string => {
+    const negative = value < 0n;
+    const abs = negative ? -value : value;
+    const scale = 10n ** BigInt(decimals);
+    const integer = abs / scale;
+    const fraction = abs % scale;
+    let fractionStr = fraction.toString().padStart(decimals, "0");
+    fractionStr = fractionStr.replace(/0+$/, "");
+    const rendered = fractionStr ? `${integer}.${fractionStr}` : `${integer}`;
+    return negative ? `-${rendered}` : rendered;
+  };
+
+  const calcPriceScaled = (
+    inRaw: string | undefined,
+    inDecimals: number,
+    outRaw: string | undefined,
+    outDecimals: number,
+    precision: number,
+  ): bigint | null => {
+    if (!inRaw || !outRaw) return null;
+    let inAmount: bigint;
+    let outAmount: bigint;
+    try {
+      inAmount = BigInt(inRaw);
+      outAmount = BigInt(outRaw);
+    } catch {
+      return null;
+    }
+    if (outAmount === 0n) return null;
+    const scale = 10n ** BigInt(precision);
+    const numerator = inAmount * scale * 10n ** BigInt(outDecimals);
+    const denominator = outAmount * 10n ** BigInt(inDecimals);
+    if (denominator === 0n) return null;
+    return (numerator + denominator / 2n) / denominator;
+  };
+
+  const computePriceSnapshot = async (
+    mint: string,
+    tokenInfo: TokenInfo | null,
+    dexes?: string[],
+  ): Promise<{ mint: string; bid: string | null; ask: string | null; mid: string | null }> => {
+    if (mint === solMint) {
+      return { mint, bid: "1", ask: "1", mid: "1" };
+    }
+    if (!tokenInfo) {
+      return { mint, bid: null, ask: null, mid: null };
+    }
+    const tokenDecimals = tokenInfo.decimals;
+    const oneTokenRaw = (10n ** BigInt(tokenDecimals)).toString();
+    let askScaled: bigint | null = null;
+    let bidScaled: bigint | null = null;
+
+    try {
+      const askQuote = await jupiter.quote({
+        inputMint: solMint,
+        outputMint: mint,
+        amount: oneTokenRaw,
+        slippageBps: defaultSlippageBps,
+        swapMode: "ExactOut",
+        dexes,
+      });
+      askScaled = calcPriceScaled(
+        askQuote.quoteResponse.inAmount,
+        solDecimals,
+        askQuote.quoteResponse.outAmount,
+        tokenDecimals,
+        priceDecimals,
+      );
+    } catch {
+      try {
+        const askQuote = await jupiter.quote({
+          inputMint: solMint,
+          outputMint: mint,
+          amount: defaultSolNotional.toString(),
+          slippageBps: defaultSlippageBps,
+          dexes,
+        });
+        askScaled = calcPriceScaled(
+          askQuote.quoteResponse.inAmount,
+          solDecimals,
+          askQuote.quoteResponse.outAmount,
+          tokenDecimals,
+          priceDecimals,
+        );
+      } catch {
+        askScaled = null;
+      }
+    }
+
+    try {
+      const bidQuote = await jupiter.quote({
+        inputMint: mint,
+        outputMint: solMint,
+        amount: oneTokenRaw,
+        slippageBps: defaultSlippageBps,
+        dexes,
+      });
+      bidScaled = calcPriceScaled(
+        bidQuote.quoteResponse.outAmount,
+        solDecimals,
+        bidQuote.quoteResponse.inAmount,
+        tokenDecimals,
+        priceDecimals,
+      );
+    } catch {
+      bidScaled = null;
+    }
+
+    const midScaled =
+      askScaled !== null && bidScaled !== null
+        ? (askScaled + bidScaled) / 2n
+        : askScaled ?? bidScaled;
+
+    return {
+      mint,
+      bid: bidScaled !== null ? formatScaled(bidScaled, priceDecimals) : null,
+      ask: askScaled !== null ? formatScaled(askScaled, priceDecimals) : null,
+      mid: midScaled !== null ? formatScaled(midScaled, priceDecimals) : null,
+    };
+  };
+
+  const mapWithConcurrency = async <T, R>(
+    items: T[],
+    limit: number,
+    fn: (item: T) => Promise<R>,
+  ): Promise<R[]> => {
+    if (items.length === 0) return [];
+    const results = new Array<R>(items.length);
+    let cursor = 0;
+    const workers = Array.from({ length: Math.min(limit, items.length) }).map(
+      async () => {
+        while (true) {
+          const index = cursor++;
+          if (index >= items.length) return;
+          results[index] = await fn(items[index]);
+        }
+      },
+    );
+    await Promise.all(workers);
+    return results;
+  };
   registry.register({
     name: "wallet.get_balances",
     description: "Return SOL + SPL balances for the agent wallet.",
@@ -64,6 +278,57 @@ export function registerDefaultTools(
       },
     ) => {
       return jupiter.quote(input);
+    },
+  });
+
+  registry.register({
+    name: "market.get_prices",
+    description:
+      "Fetch spot prices for SOL/SPL pairs from a venue or best route.",
+    schema: {
+      name: "market.get_prices",
+      description:
+        "Fetch spot prices for SOL/SPL pairs from a venue or best route.",
+      parameters: {
+        type: "object",
+        properties: {
+          mints: { type: "array", items: { type: "string" } },
+          venue: {
+            type: "string",
+            description: "Venue name or 'best'.",
+          },
+        },
+        required: ["mints"],
+        additionalProperties: false,
+      },
+    },
+    requires: { config: ["jupiter.apiKey"] },
+    execute: async (
+      _ctx: ToolContext,
+      input: { mints: string[]; venue?: string },
+    ) => {
+      const mints = Array.from(
+        new Set((input.mints || []).map((mint) => mint.trim()).filter(Boolean)),
+      );
+      const { venueUsed, dexes } = await resolveVenueDexes(input.venue);
+      const tokenInfoMap = await getTokenInfoMap(
+        mints.filter((mint) => mint !== solMint),
+      );
+      const priceInputs = mints.map((mint) => ({
+        mint,
+        tokenInfo: tokenInfoMap.get(mint) ?? null,
+      }));
+      const prices = await mapWithConcurrency(
+        priceInputs,
+        4,
+        async ({ mint, tokenInfo }) =>
+          computePriceSnapshot(mint, tokenInfo, dexes),
+      );
+      return {
+        prices,
+        venueUsed,
+        ts: new Date().toISOString(),
+      };
     },
   });
 
