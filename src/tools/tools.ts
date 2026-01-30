@@ -538,6 +538,58 @@ export function registerDefaultTools(
   });
 
   registry.register({
+    name: "risk.max_position_check",
+    description: "Enforce max position size per mint.",
+    schema: {
+      name: "risk.max_position_check",
+      description: "Enforce max position size per mint.",
+      parameters: {
+        type: "object",
+        properties: {
+          mint: { type: "string" },
+          currentBalance: { type: "string" },
+          proposedDelta: { type: "string" },
+          maxPosition: { type: "string" },
+        },
+        required: ["mint", "currentBalance", "proposedDelta", "maxPosition"],
+        additionalProperties: false,
+      },
+    },
+    execute: async (
+      _ctx: ToolContext,
+      input: {
+        mint: string;
+        currentBalance: string;
+        proposedDelta: string;
+        maxPosition: string;
+      },
+    ) => {
+      const reasons: string[] = [];
+      let current: bigint;
+      let delta: bigint;
+      let max: bigint;
+      try {
+        current = BigInt(input.currentBalance);
+        delta = BigInt(input.proposedDelta);
+        max = BigInt(input.maxPosition);
+      } catch {
+        throw new Error("invalid-numeric-input");
+      }
+      const next = current + delta;
+      if (next < 0n) {
+        reasons.push("insufficient-balance");
+      }
+      if (delta > 0n && next > max) {
+        reasons.push("max-position-exceeded");
+      }
+      return {
+        allow: reasons.length === 0,
+        reasons,
+      };
+    },
+  });
+
+  registry.register({
     name: "risk.check_trade",
     description: "Deterministic allow/deny with policy constraints.",
     schema: {

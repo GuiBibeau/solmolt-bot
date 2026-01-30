@@ -57,6 +57,13 @@ const RiskSchema = z.object({
   }),
 });
 
+const MaxPositionSchema = z.object({
+  mint: z.string().min(1),
+  currentBalance: z.string().regex(/^-?\d+$/),
+  proposedDelta: z.string().regex(/^-?\d+$/),
+  maxPosition: z.string().regex(/^-?\d+$/),
+});
+
 const NotifySchema = z.object({
   level: z.enum(["info", "warn", "error"]),
   message: z.string(),
@@ -97,6 +104,7 @@ export const TOOL_VALIDATORS: Record<string, z.ZodTypeAny> = {
   "market.get_prices": PricesSchema,
   "market.token_metadata": TokenMetadataSchema,
   "market.pyth_price": PythPriceSchema,
+  "risk.max_position_check": MaxPositionSchema,
   "risk.check_trade": RiskSchema,
   "trade.jupiter_swap": TradeSchema,
   "notify.emit": NotifySchema,

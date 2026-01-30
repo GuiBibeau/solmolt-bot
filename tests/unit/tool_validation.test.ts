@@ -112,6 +112,31 @@ test("invalid market.pyth_price args are rejected before execution", async () =>
   );
 });
 
+test("invalid risk.max_position_check args are rejected before execution", async () => {
+  const registry = new ToolRegistry();
+  const jupiter = new JupiterClient(
+    stubConfig.jupiter.baseUrl,
+    stubConfig.jupiter.apiKey,
+  );
+  registerDefaultTools(registry, jupiter);
+
+  const ctx = {
+    config: stubConfig,
+    solana: stubSolana,
+    sessionJournal: new SessionJournal("test", ".tmp/sessions"),
+    tradeJournal: new TradeJournal(".tmp/trades"),
+  };
+
+  await expect(
+    registry.invoke("risk.max_position_check", ctx, {
+      mint: "",
+      currentBalance: "abc",
+      proposedDelta: "1",
+      maxPosition: "10",
+    }),
+  ).rejects.toThrow(/validation/i);
+});
+
 test("invalid market.get_prices args are rejected before execution", async () => {
   const registry = new ToolRegistry();
   const jupiter = new JupiterClient(
@@ -130,6 +155,49 @@ test("invalid market.get_prices args are rejected before execution", async () =>
   await expect(
     registry.invoke("market.get_prices", ctx, { mints: [] }),
   ).rejects.toThrow(/validation/i);
+});
+
+test("risk.max_position_check enforces limits", async () => {
+  const registry = new ToolRegistry();
+  const jupiter = new JupiterClient(
+    stubConfig.jupiter.baseUrl,
+    stubConfig.jupiter.apiKey,
+  );
+  registerDefaultTools(registry, jupiter);
+
+  const ctx = {
+    config: stubConfig,
+    solana: stubSolana,
+    sessionJournal: new SessionJournal("test", ".tmp/sessions"),
+    tradeJournal: new TradeJournal(".tmp/trades"),
+  };
+
+  const allow = (await registry.invoke("risk.max_position_check", ctx, {
+    mint: "So11111111111111111111111111111111111111112",
+    currentBalance: "5",
+    proposedDelta: "2",
+    maxPosition: "10",
+  })) as { allow: boolean; reasons: string[] };
+  expect(allow.allow).toBe(true);
+  expect(allow.reasons.length).toBe(0);
+
+  const deny = (await registry.invoke("risk.max_position_check", ctx, {
+    mint: "So11111111111111111111111111111111111111112",
+    currentBalance: "5",
+    proposedDelta: "10",
+    maxPosition: "10",
+  })) as { allow: boolean; reasons: string[] };
+  expect(deny.allow).toBe(false);
+  expect(deny.reasons).toContain("max-position-exceeded");
+
+  const reduce = (await registry.invoke("risk.max_position_check", ctx, {
+    mint: "So11111111111111111111111111111111111111112",
+    currentBalance: "100",
+    proposedDelta: "-10",
+    maxPosition: "50",
+  })) as { allow: boolean; reasons: string[] };
+  expect(reduce.allow).toBe(true);
+  expect(reduce.reasons.length).toBe(0);
 });
 
 test("invalid market.token_metadata args are rejected before execution", async () => {
