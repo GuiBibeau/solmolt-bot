@@ -140,6 +140,19 @@ integrationTest("market.jupiter_route_map (integration)", async () => {
   expect(result.routes[0].outAmount).toBeTruthy();
 });
 
+integrationTest("market.pyth_price (integration)", async () => {
+  const { registry, ctx } = setup();
+  const symbol = process.env.PYTH_SYMBOL || "SOL/USD";
+
+  const result = (await registry.invoke("market.pyth_price", ctx, {
+    symbol,
+  })) as { price: string; confidence: string; publishTime: string };
+
+  expect(result.price).toBeTruthy();
+  expect(result.confidence).toBeTruthy();
+  expect(result.publishTime).toBeTruthy();
+});
+
 integrationTest("market.get_prices (integration)", async () => {
   const { registry, ctx } = setup();
   const priceMint =

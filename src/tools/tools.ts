@@ -228,6 +228,87 @@ export function registerDefaultTools(
     await Promise.all(workers);
     return results;
   };
+
+  const pythBaseUrl = "https://hermes.pyth.network";
+
+  const formatExpo = (value: bigint, expo: number): string => {
+    if (expo >= 0) {
+      return (value * 10n ** BigInt(expo)).toString();
+    }
+    const scale = 10n ** BigInt(-expo);
+    const negative = value < 0n;
+    const abs = negative ? -value : value;
+    const integer = abs / scale;
+    const fraction = abs % scale;
+    let fractionStr = fraction.toString().padStart(-expo, "0");
+    fractionStr = fractionStr.replace(/0+$/, "");
+    const rendered = fractionStr ? `${integer}.${fractionStr}` : `${integer}`;
+    return negative ? `-${rendered}` : rendered;
+  };
+
+  const resolvePythFeedId = async (symbol: string): Promise<string> => {
+    const url = new URL("/v2/price_feeds", pythBaseUrl);
+    url.searchParams.set("query", symbol);
+    const response = await fetch(url.toString());
+    if (!response.ok) {
+      throw new Error(`Pyth price_feeds failed: ${response.status}`);
+    }
+    const feeds = (await response.json()) as Array<{
+      id: string;
+      attributes?: Record<string, string>;
+    }>;
+    const normalized = symbol.trim().toUpperCase();
+    const normalizedNoSlash = normalized.replace("/", "");
+    for (const feed of feeds) {
+      const attrs = feed.attributes ?? {};
+      const candidates: string[] = [];
+      if (attrs.display_symbol) candidates.push(attrs.display_symbol);
+      if (attrs.symbol) {
+        candidates.push(attrs.symbol);
+        const withoutPrefix = attrs.symbol.split(".").slice(1).join(".");
+        if (withoutPrefix) candidates.push(withoutPrefix);
+      }
+      if (attrs.generic_symbol) candidates.push(attrs.generic_symbol);
+      if (attrs.base && attrs.quote_currency) {
+        candidates.push(`${attrs.base}/${attrs.quote_currency}`);
+      }
+      for (const candidate of candidates) {
+        const candidateNorm = candidate.trim().toUpperCase();
+        if (
+          candidateNorm === normalized ||
+          candidateNorm.replace("/", "") === normalizedNoSlash
+        ) {
+          return feed.id;
+        }
+      }
+    }
+    throw new Error("pyth-feed-not-found");
+  };
+
+  const fetchPythPrice = async (feedId: string) => {
+    const url = new URL("/v2/updates/price/latest", pythBaseUrl);
+    url.searchParams.append("ids[]", feedId);
+    const response = await fetch(url.toString());
+    if (!response.ok) {
+      throw new Error(`Pyth price update failed: ${response.status}`);
+    }
+    const payload = (await response.json()) as {
+      parsed?: Array<{
+        id: string;
+        price: {
+          price: string | number;
+          conf: string | number;
+          expo: number;
+          publish_time: number;
+        };
+      }>;
+    };
+    const parsed = payload.parsed?.[0];
+    if (!parsed) {
+      throw new Error("pyth-price-not-found");
+    }
+    return parsed;
+  };
   registry.register({
     name: "wallet.get_balances",
     description: "Return SOL + SPL balances for the agent wallet.",
@@ -328,6 +409,44 @@ export function registerDefaultTools(
             priceImpactPct: String(quote.quoteResponse.priceImpactPct ?? 0),
           },
         ],
+      };
+    },
+  });
+
+  registry.register({
+    name: "market.pyth_price",
+    description: "Fetch latest Pyth price for a symbol or feed ID.",
+    schema: {
+      name: "market.pyth_price",
+      description: "Fetch latest Pyth price for a symbol or feed ID.",
+      parameters: {
+        type: "object",
+        properties: {
+          symbol: { type: "string" },
+          feedId: { type: "string" },
+        },
+        required: [],
+        additionalProperties: false,
+      },
+    },
+    execute: async (
+      _ctx: ToolContext,
+      input: { symbol?: string; feedId?: string },
+    ) => {
+      const feedId =
+        input.feedId?.trim() ||
+        (input.symbol ? await resolvePythFeedId(input.symbol) : "");
+      if (!feedId) {
+        throw new Error("symbol-or-feedId-required");
+      }
+      const parsed = await fetchPythPrice(feedId);
+      const expo = parsed.price.expo ?? 0;
+      const price = formatExpo(BigInt(parsed.price.price), expo);
+      const confidence = formatExpo(BigInt(parsed.price.conf), expo);
+      return {
+        price,
+        confidence,
+        publishTime: new Date(parsed.price.publish_time * 1000).toISOString(),
       };
     },
   });

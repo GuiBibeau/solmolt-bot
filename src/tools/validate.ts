@@ -81,12 +81,22 @@ const TokenMetadataSchema = z.object({
   mint: z.string().min(1),
 });
 
+const PythPriceSchema = z
+  .object({
+    symbol: z.string().min(1).optional(),
+    feedId: z.string().min(1).optional(),
+  })
+  .refine((data) => Boolean(data.symbol || data.feedId), {
+    message: "symbol-or-feedId-required",
+  });
+
 export const TOOL_VALIDATORS: Record<string, z.ZodTypeAny> = {
   "wallet.get_balances": BalancesSchema,
   "market.jupiter_quote": QuoteSchema,
   "market.jupiter_route_map": RouteMapSchema,
   "market.get_prices": PricesSchema,
   "market.token_metadata": TokenMetadataSchema,
+  "market.pyth_price": PythPriceSchema,
   "risk.check_trade": RiskSchema,
   "trade.jupiter_swap": TradeSchema,
   "notify.emit": NotifySchema,
