@@ -1,0 +1,33 @@
+{
+  "name": "solmolt-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "solmolt": "dist/bin/solmolt.js"
+  },
+  "scripts": {
+    "dev": "bun run src/bin/solmolt.ts",
+    "build": "bun build src/bin/solmolt.ts --outdir dist/bin --target node --format esm",
+    "start": "bun dist/bin/solmolt.js",
+    "gateway": "bun run src/bin/solmolt.ts gateway",
+    "status": "bun run src/bin/solmolt.ts status",
+    "autopilot:start": "bun run src/bin/solmolt.ts autopilot start",
+    "autopilot:stop": "bun run src/bin/solmolt.ts autopilot stop",
+    "tool": "bun run src/bin/solmolt.ts tool",
+    "help": "bun run src/bin/solmolt.ts --help"
+  },
+  "dependencies": {
+    "@solana/web3.js": "^1.98.4",
+    "bs58": "^5.0.0",
+    "commander": "^12.1.0",
+    "ws": "^8.17.0",
+    "yaml": "^2.5.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.2",
+    "@types/ws": "^8.5.10",
+    "typescript": "^5.5.4"
+  }
+}

@@ -1,0 +1,33 @@
+rpc:
+  endpoint: "https://api.mainnet-beta.solana.com"
+wallet:
+  # privateKey can be base58, base64:..., hex:..., or JSON array string
+  privateKey: "<REPLACE_ME>"
+  # keyfilePath: "/path/to/solana/id.json"
+solana:
+  sdkMode: "web3"
+jupiter:
+  apiKey: "<REPLACE_ME>"
+  baseUrl: "https://api.jup.ag"
+llm:
+  provider: "openai_chat"
+  baseUrl: "https://api.deepinfra.com/v1/openai"
+  apiKey: "<REPLACE_ME>"
+  model: "zai-org/GLM-4.7"
+autopilot:
+  enabled: false
+  intervalMs: 15000
+gateway:
+  bind: "127.0.0.1"
+  port: 8787
+  authToken: "<REPLACE_ME>"
+notify:
+  # webhookUrl: "https://example.com/webhook"
+policy:
+  killSwitch: false
+  allowedMints: []
+  maxTradeAmountLamports: "0"
+  maxSlippageBps: 50
+  maxPriceImpactPct: 1
+  cooldownSeconds: 30
+  # dailySpendCapLamports: "0"
