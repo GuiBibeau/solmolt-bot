@@ -49,7 +49,7 @@ export function registerDefaultTools(
     };
   };
 
-  const chunk = <T,>(items: T[], size: number): T[][] => {
+  const chunk = <T>(items: T[], size: number): T[][] => {
     if (items.length <= size) return [items];
     const output: T[][] = [];
     for (let i = 0; i < items.length; i += size) {
@@ -125,7 +125,12 @@ export function registerDefaultTools(
     mint: string,
     tokenInfo: TokenInfo | null,
     dexes?: string[],
-  ): Promise<{ mint: string; bid: string | null; ask: string | null; mid: string | null }> => {
+  ): Promise<{
+    mint: string;
+    bid: string | null;
+    ask: string | null;
+    mid: string | null;
+  }> => {
     if (mint === solMint) {
       return { mint, bid: "1", ask: "1", mid: "1" };
     }
@@ -196,7 +201,7 @@ export function registerDefaultTools(
     const midScaled =
       askScaled !== null && bidScaled !== null
         ? (askScaled + bidScaled) / 2n
-        : askScaled ?? bidScaled;
+        : (askScaled ?? bidScaled);
 
     return {
       mint,

@@ -122,8 +122,7 @@ integrationTest("market.jupiter_quote (integration)", async () => {
 integrationTest("market.get_prices (integration)", async () => {
   const { registry, ctx } = setup();
   const priceMint =
-    process.env.PRICE_MINT ||
-    "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+    process.env.PRICE_MINT || "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 
   const result = (await registry.invoke("market.get_prices", ctx, {
     mints: [priceMint],

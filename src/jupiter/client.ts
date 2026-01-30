@@ -126,9 +126,7 @@ export class JupiterClient {
     });
 
     if (!response.ok) {
-      throw new Error(
-        `Jupiter program-id-to-label failed: ${response.status}`,
-      );
+      throw new Error(`Jupiter program-id-to-label failed: ${response.status}`);
     }
 
     return (await response.json()) as Record<string, string>;
