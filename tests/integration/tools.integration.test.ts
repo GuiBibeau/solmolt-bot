@@ -153,6 +153,31 @@ integrationTest("market.pyth_price (integration)", async () => {
   expect(result.publishTime).toBeTruthy();
 });
 
+integrationTest("market.candles (integration)", async () => {
+  if (!process.env.BIRDEYE_API_KEY) {
+    return;
+  }
+  const { registry, ctx } = setup();
+  const inputMint =
+    process.env.CANDLES_INPUT_MINT ||
+    "So11111111111111111111111111111111111111112";
+  const outputMint =
+    process.env.CANDLES_OUTPUT_MINT ||
+    "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+
+  const result = (await registry.invoke("market.candles", ctx, {
+    inputMint,
+    outputMint,
+    interval: process.env.CANDLES_INTERVAL || "1m",
+    limit: Number(process.env.CANDLES_LIMIT || "5"),
+  })) as { candles: Array<{ t: number; o: string; c: string }> };
+
+  expect(result.candles.length).toBeGreaterThan(0);
+  expect(result.candles[0].t).toBeTruthy();
+  expect(result.candles[0].o).toBeTruthy();
+  expect(result.candles[0].c).toBeTruthy();
+});
+
 integrationTest("risk.daily_pnl_snapshot (integration)", async () => {
   const { registry, ctx } = setup();
   const date = new Date().toISOString().slice(0, 10);

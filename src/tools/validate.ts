@@ -101,6 +101,13 @@ const PythPriceSchema = z
     message: "symbol-or-feedId-required",
   });
 
+const CandlesSchema = z.object({
+  inputMint: z.string().min(1),
+  outputMint: z.string().min(1),
+  interval: z.string().min(1),
+  limit: z.number().int().positive().max(1000).optional(),
+});
+
 export const TOOL_VALIDATORS: Record<string, z.ZodTypeAny> = {
   "wallet.get_balances": BalancesSchema,
   "market.jupiter_quote": QuoteSchema,
@@ -108,6 +115,7 @@ export const TOOL_VALIDATORS: Record<string, z.ZodTypeAny> = {
   "market.get_prices": PricesSchema,
   "market.token_metadata": TokenMetadataSchema,
   "market.pyth_price": PythPriceSchema,
+  "market.candles": CandlesSchema,
   "risk.max_position_check": MaxPositionSchema,
   "risk.daily_pnl_snapshot": DailyPnlSchema,
   "risk.check_trade": RiskSchema,

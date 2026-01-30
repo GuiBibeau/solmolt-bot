@@ -19,6 +19,16 @@ export function registerDefaultTools(
   const priceDecimals = 9;
   const defaultSlippageBps = 50;
   const defaultSolNotional = 1_000_000_000n;
+  const birdeyeBaseUrl = "https://public-api.birdeye.so";
+  const candleIntervals: Record<string, { type: string; seconds: number }> = {
+    "1m": { type: "1m", seconds: 60 },
+    "5m": { type: "5m", seconds: 300 },
+    "15m": { type: "15m", seconds: 900 },
+    "30m": { type: "30m", seconds: 1800 },
+    "1h": { type: "1H", seconds: 3600 },
+    "4h": { type: "4H", seconds: 14_400 },
+    "1d": { type: "1D", seconds: 86_400 },
+  };
 
   const getDexLabels = async (): Promise<string[]> => {
     if (dexLabelCache) return dexLabelCache;
@@ -142,6 +152,67 @@ export function registerDefaultTools(
   ): bigint => {
     const scale = 10n ** BigInt(decimals);
     return (amountRaw * priceScaled) / scale;
+  };
+
+  const fetchCandles = async (input: {
+    inputMint: string;
+    outputMint: string;
+    interval: string;
+    limit: number;
+  }): Promise<
+    Array<{
+      t: number;
+      o: string;
+      h: string;
+      l: string;
+      c: string;
+      v: string;
+    }>
+  > => {
+    const intervalKey = input.interval.trim().toLowerCase();
+    const interval = candleIntervals[intervalKey];
+    if (!interval) {
+      throw new Error("unsupported-interval");
+    }
+    const limit = Math.max(1, Math.min(input.limit, 1000));
+    const timeTo = Math.floor(Date.now() / 1000);
+    const timeFrom = timeTo - interval.seconds * limit;
+    const url = new URL("/defi/ohlcv/base_quote", birdeyeBaseUrl);
+    url.searchParams.set("base_address", input.inputMint);
+    url.searchParams.set("quote_address", input.outputMint);
+    url.searchParams.set("type", interval.type);
+    url.searchParams.set("time_from", timeFrom.toString());
+    url.searchParams.set("time_to", timeTo.toString());
+
+    const response = await fetch(url.toString(), {
+      method: "GET",
+      headers: {
+        "x-api-key": process.env.BIRDEYE_API_KEY ?? "",
+        "x-chain": "solana",
+        accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Birdeye ohlcv failed: ${response.status}`);
+    }
+
+    const payload = (await response.json()) as {
+      data?: { items?: Array<Record<string, unknown>> } | Array<unknown>;
+      items?: Array<Record<string, unknown>>;
+    };
+    const rawItems = Array.isArray(payload.data)
+      ? payload.data
+      : (payload.data?.items ?? payload.items ?? []);
+    const items = (rawItems as Array<Record<string, unknown>>).map((item) => ({
+      t: Number(item.unixTime ?? item.t ?? item.time ?? item.timestamp ?? 0),
+      o: String(item.o ?? ""),
+      h: String(item.h ?? ""),
+      l: String(item.l ?? ""),
+      c: String(item.c ?? ""),
+      v: String(item.v ?? ""),
+    }));
+    return items.filter((item) => item.t > 0 && item.o !== "");
   };
 
   const computePriceSnapshot = async (
@@ -474,6 +545,44 @@ export function registerDefaultTools(
         confidence,
         publishTime: new Date(parsed.price.publish_time * 1000).toISOString(),
       };
+    },
+  });
+
+  registry.register({
+    name: "market.candles",
+    description: "Fetch OHLCV candles for a pair.",
+    schema: {
+      name: "market.candles",
+      description: "Fetch OHLCV candles for a pair.",
+      parameters: {
+        type: "object",
+        properties: {
+          inputMint: { type: "string" },
+          outputMint: { type: "string" },
+          interval: { type: "string" },
+          limit: { type: "integer" },
+        },
+        required: ["inputMint", "outputMint", "interval"],
+        additionalProperties: false,
+      },
+    },
+    requires: { env: ["BIRDEYE_API_KEY"] },
+    execute: async (
+      _ctx: ToolContext,
+      input: {
+        inputMint: string;
+        outputMint: string;
+        interval: string;
+        limit?: number;
+      },
+    ) => {
+      const candles = await fetchCandles({
+        inputMint: input.inputMint,
+        outputMint: input.outputMint,
+        interval: input.interval,
+        limit: input.limit ?? 200,
+      });
+      return { candles };
     },
   });
 

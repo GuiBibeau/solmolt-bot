@@ -157,6 +157,32 @@ test("invalid risk.daily_pnl_snapshot args are rejected before execution", async
   ).rejects.toThrow(/validation/i);
 });
 
+test("invalid market.candles args are rejected before execution", async () => {
+  process.env.BIRDEYE_API_KEY = "test";
+  const registry = new ToolRegistry();
+  const jupiter = new JupiterClient(
+    stubConfig.jupiter.baseUrl,
+    stubConfig.jupiter.apiKey,
+  );
+  registerDefaultTools(registry, jupiter);
+
+  const ctx = {
+    config: stubConfig,
+    solana: stubSolana,
+    sessionJournal: new SessionJournal("test", ".tmp/sessions"),
+    tradeJournal: new TradeJournal(".tmp/trades"),
+  };
+
+  await expect(
+    registry.invoke("market.candles", ctx, {
+      inputMint: "",
+      outputMint: "",
+      interval: "",
+      limit: -1,
+    }),
+  ).rejects.toThrow(/validation/i);
+});
+
 test("invalid market.get_prices args are rejected before execution", async () => {
   const registry = new ToolRegistry();
   const jupiter = new JupiterClient(
