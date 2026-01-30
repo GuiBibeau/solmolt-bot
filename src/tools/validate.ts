@@ -108,6 +108,10 @@ const CandlesSchema = z.object({
   limit: z.number().int().positive().max(1000).optional(),
 });
 
+const RaydiumPoolSchema = z.object({
+  poolId: z.string().min(1),
+});
+
 export const TOOL_VALIDATORS: Record<string, z.ZodTypeAny> = {
   "wallet.get_balances": BalancesSchema,
   "market.jupiter_quote": QuoteSchema,
@@ -116,6 +120,7 @@ export const TOOL_VALIDATORS: Record<string, z.ZodTypeAny> = {
   "market.token_metadata": TokenMetadataSchema,
   "market.pyth_price": PythPriceSchema,
   "market.candles": CandlesSchema,
+  "market.raydium_pool_stats": RaydiumPoolSchema,
   "risk.max_position_check": MaxPositionSchema,
   "risk.daily_pnl_snapshot": DailyPnlSchema,
   "risk.check_trade": RiskSchema,

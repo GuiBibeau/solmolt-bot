@@ -178,6 +178,21 @@ integrationTest("market.candles (integration)", async () => {
   expect(result.candles[0].c).toBeTruthy();
 });
 
+integrationTest("market.raydium_pool_stats (integration)", async () => {
+  const { registry, ctx } = setup();
+  const poolId =
+    process.env.RAYDIUM_POOL_ID ||
+    "2EXiumdi14E9b8Fy62QcA5Uh6WdHS2b38wtSxp72Mibj";
+
+  const result = (await registry.invoke("market.raydium_pool_stats", ctx, {
+    poolId,
+  })) as { tvlUsd: string; volume24hUsd: string; feeTierBps: number };
+
+  expect(result.tvlUsd).toBeTruthy();
+  expect(result.volume24hUsd).toBeTruthy();
+  expect(Number.isFinite(result.feeTierBps)).toBe(true);
+});
+
 integrationTest("risk.daily_pnl_snapshot (integration)", async () => {
   const { registry, ctx } = setup();
   const date = new Date().toISOString().slice(0, 10);
