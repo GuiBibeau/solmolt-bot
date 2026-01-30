@@ -695,11 +695,33 @@ export function registerDefaultTools(
         throw new Error("feed-id-required");
       }
       const payload = await fetchSwitchboardFeed(feedId);
+      const result =
+        payload.result && typeof payload.result === "object"
+          ? (payload.result as Record<string, unknown>)
+          : null;
       const rawPrice =
-        payload.price ?? payload.result ?? payload.exchange_rate ?? null;
+        payload.price ??
+        result?.value ??
+        result?.result ??
+        payload.result ??
+        payload.exchange_rate ??
+        null;
       const rawStddev =
-        payload.stddev ?? payload.stdDev ?? payload.std_deviation ?? null;
-      const rawTs = payload.timestamp ?? payload.ts ?? payload.time ?? null;
+        payload.stddev ??
+        payload.stdDev ??
+        payload.std_deviation ??
+        result?.std_dev ??
+        result?.stdDev ??
+        result?.stddev ??
+        null;
+      const rawTs =
+        payload.timestamp ??
+        payload.ts ??
+        payload.time ??
+        result?.timestamp ??
+        result?.ts ??
+        result?.time ??
+        null;
 
       const price = rawPrice !== null ? String(rawPrice) : "";
       const stddev = rawStddev !== null ? String(rawStddev) : "0";
