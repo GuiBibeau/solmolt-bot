@@ -64,6 +64,10 @@ const MaxPositionSchema = z.object({
   maxPosition: z.string().regex(/^-?\d+$/),
 });
 
+const DailyPnlSchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
 const NotifySchema = z.object({
   level: z.enum(["info", "warn", "error"]),
   message: z.string(),
@@ -105,6 +109,7 @@ export const TOOL_VALIDATORS: Record<string, z.ZodTypeAny> = {
   "market.token_metadata": TokenMetadataSchema,
   "market.pyth_price": PythPriceSchema,
   "risk.max_position_check": MaxPositionSchema,
+  "risk.daily_pnl_snapshot": DailyPnlSchema,
   "risk.check_trade": RiskSchema,
   "trade.jupiter_swap": TradeSchema,
   "notify.emit": NotifySchema,

@@ -94,6 +94,23 @@ export function registerDefaultTools(
     return negative ? `-${rendered}` : rendered;
   };
 
+  const parseScaled = (value: string, decimals: number): bigint | null => {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const negative = trimmed.startsWith("-");
+    const normalized = negative ? trimmed.slice(1) : trimmed;
+    const [intPart, fracPartRaw] = normalized.split(".");
+    if (!intPart || !/^\d+$/.test(intPart)) return null;
+    if (fracPartRaw && !/^\d+$/.test(fracPartRaw)) return null;
+    const fracPart = (fracPartRaw ?? "").slice(0, decimals);
+    const padded = fracPart.padEnd(decimals, "0");
+    const scale = 10n ** BigInt(decimals);
+    const integer = BigInt(intPart) * scale;
+    const fraction = padded ? BigInt(padded) : 0n;
+    const result = integer + fraction;
+    return negative ? -result : result;
+  };
+
   const calcPriceScaled = (
     inRaw: string | undefined,
     inDecimals: number,
@@ -116,6 +133,15 @@ export function registerDefaultTools(
     const denominator = outAmount * 10n ** BigInt(inDecimals);
     if (denominator === 0n) return null;
     return (numerator + denominator / 2n) / denominator;
+  };
+
+  const valueFromAmount = (
+    amountRaw: bigint,
+    decimals: number,
+    priceScaled: bigint,
+  ): bigint => {
+    const scale = 10n ** BigInt(decimals);
+    return (amountRaw * priceScaled) / scale;
   };
 
   const computePriceSnapshot = async (
@@ -590,6 +616,157 @@ export function registerDefaultTools(
   });
 
   registry.register({
+    name: "risk.daily_pnl_snapshot",
+    description:
+      "Compute a daily PnL snapshot from trade journal and balances.",
+    schema: {
+      name: "risk.daily_pnl_snapshot",
+      description:
+        "Compute a daily PnL snapshot from trade journal and balances.",
+      parameters: {
+        type: "object",
+        properties: {
+          date: { type: "string", description: "YYYY-MM-DD" },
+        },
+        required: ["date"],
+        additionalProperties: false,
+      },
+    },
+    requires: { config: ["rpc.endpoint", "jupiter.apiKey"] },
+    execute: async (ctx: ToolContext, input: { date: string }) => {
+      const entries = await ctx.tradeJournal.read(input.date);
+      const deltaByMint = new Map<string, bigint>();
+      let tradeFlowValueScaled = 0n;
+      for (const entry of entries) {
+        if (
+          entry.type !== "swap" ||
+          entry.status !== "confirmed" ||
+          !entry.inputMint ||
+          !entry.outputMint ||
+          !entry.inAmount ||
+          !entry.outAmount
+        ) {
+          continue;
+        }
+        if (entry.inValueSol && entry.outValueSol) {
+          try {
+            const inValue = parseScaled(
+              String(entry.inValueSol),
+              priceDecimals,
+            );
+            const outValue = parseScaled(
+              String(entry.outValueSol),
+              priceDecimals,
+            );
+            if (inValue !== null && outValue !== null) {
+              tradeFlowValueScaled += outValue - inValue;
+              continue;
+            }
+          } catch {
+            // fall back to price-based valuation
+          }
+        }
+        const inputMint = String(entry.inputMint);
+        const outputMint = String(entry.outputMint);
+        let inAmount: bigint;
+        let outAmount: bigint;
+        try {
+          inAmount = BigInt(String(entry.inAmount));
+          outAmount = BigInt(String(entry.outAmount));
+        } catch {
+          continue;
+        }
+        deltaByMint.set(
+          inputMint,
+          (deltaByMint.get(inputMint) ?? 0n) - inAmount,
+        );
+        deltaByMint.set(
+          outputMint,
+          (deltaByMint.get(outputMint) ?? 0n) + outAmount,
+        );
+      }
+
+      const solLamports = await ctx.solana.getSolBalanceLamports();
+      const balances = await ctx.solana.getSplBalances();
+
+      const mintDecimals = new Map<string, number>();
+      mintDecimals.set(solMint, solDecimals);
+      for (const token of balances) {
+        mintDecimals.set(token.mint, token.decimals);
+      }
+
+      const priceMints = new Set<string>([solMint]);
+      for (const token of balances) priceMints.add(token.mint);
+      for (const mint of deltaByMint.keys()) priceMints.add(mint);
+
+      const tokenInfoMap = await getTokenInfoMap(
+        Array.from(priceMints).filter((mint) => mint !== solMint),
+      );
+      for (const [mint, info] of tokenInfoMap.entries()) {
+        if (!mintDecimals.has(mint) && info) {
+          mintDecimals.set(mint, info.decimals);
+        }
+      }
+
+      const priceSnapshots = await mapWithConcurrency(
+        Array.from(priceMints),
+        4,
+        async (mint) =>
+          computePriceSnapshot(mint, tokenInfoMap.get(mint) ?? null),
+      );
+
+      const priceScaledMap = new Map<string, bigint | null>();
+      for (const snapshot of priceSnapshots) {
+        if (snapshot.mint === solMint) {
+          priceScaledMap.set(snapshot.mint, 10n ** BigInt(priceDecimals));
+          continue;
+        }
+        const value = snapshot.mid ?? snapshot.bid ?? snapshot.ask ?? undefined;
+        if (!value) {
+          priceScaledMap.set(snapshot.mint, null);
+          continue;
+        }
+        priceScaledMap.set(snapshot.mint, parseScaled(value, priceDecimals));
+      }
+
+      let portfolioValueScaled = valueFromAmount(
+        BigInt(solLamports),
+        solDecimals,
+        10n ** BigInt(priceDecimals),
+      );
+      for (const token of balances) {
+        const priceScaled = priceScaledMap.get(token.mint);
+        if (!priceScaled) continue;
+        portfolioValueScaled += valueFromAmount(
+          BigInt(token.amountRaw),
+          token.decimals,
+          priceScaled,
+        );
+      }
+
+      for (const [mint, delta] of deltaByMint.entries()) {
+        const decimals = mintDecimals.get(mint);
+        const priceScaled = priceScaledMap.get(mint);
+        if (decimals === undefined || !priceScaled) continue;
+        tradeFlowValueScaled += valueFromAmount(delta, decimals, priceScaled);
+      }
+
+      const realizedPnl = formatScaled(tradeFlowValueScaled, priceDecimals);
+      const net = formatScaled(portfolioValueScaled, priceDecimals);
+      const unrealizedPnl = formatScaled(
+        portfolioValueScaled - tradeFlowValueScaled,
+        priceDecimals,
+      );
+
+      return {
+        realizedPnl,
+        unrealizedPnl,
+        net,
+      };
+    },
+  });
+
+  registry.register({
     name: "risk.check_trade",
     description: "Deterministic allow/deny with policy constraints.",
     schema: {
@@ -722,11 +899,82 @@ export function registerDefaultTools(
       const result = await ctx.solana.sendAndConfirmRawTx(signed, {
         commitment: input.txOptions?.commitment ?? "confirmed",
       });
+      const tokenInfoMap = await getTokenInfoMap(
+        [input.quoteResponse.inputMint, input.quoteResponse.outputMint].filter(
+          (mint) => mint !== solMint,
+        ),
+      );
+      const inputInfo = tokenInfoMap.get(input.quoteResponse.inputMint) ?? null;
+      const outputInfo =
+        tokenInfoMap.get(input.quoteResponse.outputMint) ?? null;
+
+      const inputSnapshot = await computePriceSnapshot(
+        input.quoteResponse.inputMint,
+        inputInfo,
+      );
+      const outputSnapshot = await computePriceSnapshot(
+        input.quoteResponse.outputMint,
+        outputInfo,
+      );
+
+      const inputPrice =
+        inputSnapshot.mid ?? inputSnapshot.bid ?? inputSnapshot.ask;
+      const outputPrice =
+        outputSnapshot.mid ?? outputSnapshot.bid ?? outputSnapshot.ask;
+
+      let inputValueSol: string | null = null;
+      let outputValueSol: string | null = null;
+
+      try {
+        const inputAmount = BigInt(input.quoteResponse.inAmount ?? "0");
+        const outputAmount = BigInt(input.quoteResponse.outAmount ?? "0");
+        const inputDecimals =
+          input.quoteResponse.inputMint === solMint
+            ? solDecimals
+            : inputInfo?.decimals;
+        const outputDecimals =
+          input.quoteResponse.outputMint === solMint
+            ? solDecimals
+            : outputInfo?.decimals;
+        const inputPriceScaled =
+          input.quoteResponse.inputMint === solMint
+            ? 10n ** BigInt(priceDecimals)
+            : inputPrice
+              ? parseScaled(inputPrice, priceDecimals)
+              : null;
+        const outputPriceScaled =
+          input.quoteResponse.outputMint === solMint
+            ? 10n ** BigInt(priceDecimals)
+            : outputPrice
+              ? parseScaled(outputPrice, priceDecimals)
+              : null;
+        if (inputDecimals !== undefined && inputPriceScaled) {
+          inputValueSol = formatScaled(
+            valueFromAmount(inputAmount, inputDecimals, inputPriceScaled),
+            priceDecimals,
+          );
+        }
+        if (outputDecimals !== undefined && outputPriceScaled) {
+          outputValueSol = formatScaled(
+            valueFromAmount(outputAmount, outputDecimals, outputPriceScaled),
+            priceDecimals,
+          );
+        }
+      } catch {
+        inputValueSol = null;
+        outputValueSol = null;
+      }
       await ctx.tradeJournal.append({
         type: "swap",
         signature: result.signature,
         status: result.err ? "error" : "confirmed",
         lastValidBlockHeight: swap.lastValidBlockHeight,
+        inputMint: input.quoteResponse.inputMint,
+        outputMint: input.quoteResponse.outputMint,
+        inAmount: input.quoteResponse.inAmount,
+        outAmount: input.quoteResponse.outAmount,
+        inValueSol: inputValueSol,
+        outValueSol: outputValueSol,
       });
       return {
         signature: result.signature,

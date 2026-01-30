@@ -1,4 +1,5 @@
 import type { QuoteSummary } from "../tools/types.js";
+import { sleep } from "../util/time.js";
 import type { JupiterQuoteResponse, JupiterSwapResponse } from "./schema.js";
 import {
   JupiterQuoteResponseSchema,
@@ -136,17 +137,29 @@ export class JupiterClient {
   async searchTokens(query: string): Promise<TokenInfo[]> {
     const url = new URL("/tokens/v2/search", this.baseUrl);
     url.searchParams.set("query", query);
-    const response = await fetch(url.toString(), {
-      method: "GET",
-      headers: {
-        "x-api-key": this.apiKey,
-      },
-    });
+    const maxAttempts = 3;
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+          "x-api-key": this.apiKey,
+        },
+      });
 
-    if (!response.ok) {
+      if (response.ok) {
+        return (await response.json()) as TokenInfo[];
+      }
+
+      if (response.status === 429 || response.status >= 500) {
+        if (attempt < maxAttempts - 1) {
+          await sleep(200 * 2 ** attempt);
+          continue;
+        }
+      }
+
       throw new Error(`Jupiter token search failed: ${response.status}`);
     }
 
-    return (await response.json()) as TokenInfo[];
+    return [];
   }
 }

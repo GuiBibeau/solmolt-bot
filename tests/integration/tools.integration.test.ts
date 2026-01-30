@@ -153,6 +153,19 @@ integrationTest("market.pyth_price (integration)", async () => {
   expect(result.publishTime).toBeTruthy();
 });
 
+integrationTest("risk.daily_pnl_snapshot (integration)", async () => {
+  const { registry, ctx } = setup();
+  const date = new Date().toISOString().slice(0, 10);
+
+  const result = (await registry.invoke("risk.daily_pnl_snapshot", ctx, {
+    date,
+  })) as { realizedPnl: string; unrealizedPnl: string; net: string };
+
+  expect(result.realizedPnl).toBeTruthy();
+  expect(result.unrealizedPnl).toBeTruthy();
+  expect(result.net).toBeTruthy();
+});
+
 integrationTest("market.get_prices (integration)", async () => {
   const { registry, ctx } = setup();
   const priceMint =
