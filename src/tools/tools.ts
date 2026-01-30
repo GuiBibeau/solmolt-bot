@@ -29,6 +29,11 @@ export function registerDefaultTools(
     "4h": { type: "4H", seconds: 14_400 },
     "1d": { type: "1D", seconds: 86_400 },
   };
+  const raydiumBaseUrl = "https://api.raydium.io";
+  let raydiumPairsCache: {
+    ts: number;
+    data: Array<Record<string, unknown>>;
+  } | null = null;
 
   const getDexLabels = async (): Promise<string[]> => {
     if (dexLabelCache) return dexLabelCache;
@@ -213,6 +218,32 @@ export function registerDefaultTools(
       v: String(item.v ?? ""),
     }));
     return items.filter((item) => item.t > 0 && item.o !== "");
+  };
+
+  const fetchRaydiumPairs = async (): Promise<
+    Array<Record<string, unknown>>
+  > => {
+    const now = Date.now();
+    if (raydiumPairsCache && now - raydiumPairsCache.ts < 60_000) {
+      return raydiumPairsCache.data;
+    }
+    const url = new URL("/v2/main/pairs", raydiumBaseUrl);
+    const response = await fetch(url.toString(), { method: "GET" });
+    if (!response.ok) {
+      throw new Error(`Raydium pairs failed: ${response.status}`);
+    }
+    const data = (await response.json()) as Array<Record<string, unknown>>;
+    raydiumPairsCache = { ts: now, data };
+    return data;
+  };
+
+  const toNumber = (value: unknown): number | null => {
+    if (value === null || value === undefined) return null;
+    const num =
+      typeof value === "number"
+        ? value
+        : Number(typeof value === "string" ? value : "");
+    return Number.isFinite(num) ? num : null;
   };
 
   const computePriceSnapshot = async (
@@ -583,6 +614,53 @@ export function registerDefaultTools(
         limit: input.limit ?? 200,
       });
       return { candles };
+    },
+  });
+
+  registry.register({
+    name: "market.raydium_pool_stats",
+    description: "Fetch Raydium pool stats (TVL, 24h volume, fee tier).",
+    schema: {
+      name: "market.raydium_pool_stats",
+      description: "Fetch Raydium pool stats (TVL, 24h volume, fee tier).",
+      parameters: {
+        type: "object",
+        properties: {
+          poolId: { type: "string" },
+        },
+        required: ["poolId"],
+        additionalProperties: false,
+      },
+    },
+    execute: async (_ctx: ToolContext, input: { poolId: string }) => {
+      const poolId = input.poolId.trim();
+      if (!poolId) {
+        throw new Error("pool-id-required");
+      }
+      const pairs = await fetchRaydiumPairs();
+      const pool = pairs.find(
+        (item) =>
+          item.ammId === poolId ||
+          item.lpMint === poolId ||
+          item.market === poolId ||
+          item.name === poolId,
+      );
+      if (!pool) {
+        throw new Error("raydium-pool-not-found");
+      }
+      const tvlUsd = toNumber(pool.liquidity);
+      const volume24hUsd = toNumber(pool.volume24hQuote ?? pool.volume24h);
+      const fee24hUsd = toNumber(pool.fee24hQuote ?? pool.fee24h);
+      let feeTierBps = 0;
+      if (volume24hUsd && fee24hUsd) {
+        feeTierBps = Math.round((fee24hUsd / volume24hUsd) * 10_000);
+      }
+      return {
+        tvlUsd: String(tvlUsd ?? 0),
+        volume24hUsd: String(volume24hUsd ?? 0),
+        feeTierBps,
+        ts: new Date().toISOString(),
+      };
     },
   });
 
