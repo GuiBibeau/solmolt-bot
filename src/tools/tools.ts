@@ -636,6 +636,7 @@ export function registerDefaultTools(
     execute: async (ctx: ToolContext, input: { date: string }) => {
       const entries = await ctx.tradeJournal.read(input.date);
       const deltaByMint = new Map<string, bigint>();
+      let tradeFlowValueScaled = 0n;
       for (const entry of entries) {
         if (
           entry.type !== "swap" ||
@@ -646,6 +647,24 @@ export function registerDefaultTools(
           !entry.outAmount
         ) {
           continue;
+        }
+        if (entry.inValueSol && entry.outValueSol) {
+          try {
+            const inValue = parseScaled(
+              String(entry.inValueSol),
+              priceDecimals,
+            );
+            const outValue = parseScaled(
+              String(entry.outValueSol),
+              priceDecimals,
+            );
+            if (inValue !== null && outValue !== null) {
+              tradeFlowValueScaled += outValue - inValue;
+              continue;
+            }
+          } catch {
+            // fall back to price-based valuation
+          }
         }
         const inputMint = String(entry.inputMint);
         const outputMint = String(entry.outputMint);
@@ -725,7 +744,6 @@ export function registerDefaultTools(
         );
       }
 
-      let tradeFlowValueScaled = 0n;
       for (const [mint, delta] of deltaByMint.entries()) {
         const decimals = mintDecimals.get(mint);
         const priceScaled = priceScaledMap.get(mint);
@@ -881,6 +899,71 @@ export function registerDefaultTools(
       const result = await ctx.solana.sendAndConfirmRawTx(signed, {
         commitment: input.txOptions?.commitment ?? "confirmed",
       });
+      const tokenInfoMap = await getTokenInfoMap(
+        [input.quoteResponse.inputMint, input.quoteResponse.outputMint].filter(
+          (mint) => mint !== solMint,
+        ),
+      );
+      const inputInfo = tokenInfoMap.get(input.quoteResponse.inputMint) ?? null;
+      const outputInfo =
+        tokenInfoMap.get(input.quoteResponse.outputMint) ?? null;
+
+      const inputSnapshot = await computePriceSnapshot(
+        input.quoteResponse.inputMint,
+        inputInfo,
+      );
+      const outputSnapshot = await computePriceSnapshot(
+        input.quoteResponse.outputMint,
+        outputInfo,
+      );
+
+      const inputPrice =
+        inputSnapshot.mid ?? inputSnapshot.bid ?? inputSnapshot.ask;
+      const outputPrice =
+        outputSnapshot.mid ?? outputSnapshot.bid ?? outputSnapshot.ask;
+
+      let inputValueSol: string | null = null;
+      let outputValueSol: string | null = null;
+
+      try {
+        const inputAmount = BigInt(input.quoteResponse.inAmount ?? "0");
+        const outputAmount = BigInt(input.quoteResponse.outAmount ?? "0");
+        const inputDecimals =
+          input.quoteResponse.inputMint === solMint
+            ? solDecimals
+            : inputInfo?.decimals;
+        const outputDecimals =
+          input.quoteResponse.outputMint === solMint
+            ? solDecimals
+            : outputInfo?.decimals;
+        const inputPriceScaled =
+          input.quoteResponse.inputMint === solMint
+            ? 10n ** BigInt(priceDecimals)
+            : inputPrice
+              ? parseScaled(inputPrice, priceDecimals)
+              : null;
+        const outputPriceScaled =
+          input.quoteResponse.outputMint === solMint
+            ? 10n ** BigInt(priceDecimals)
+            : outputPrice
+              ? parseScaled(outputPrice, priceDecimals)
+              : null;
+        if (inputDecimals !== undefined && inputPriceScaled) {
+          inputValueSol = formatScaled(
+            valueFromAmount(inputAmount, inputDecimals, inputPriceScaled),
+            priceDecimals,
+          );
+        }
+        if (outputDecimals !== undefined && outputPriceScaled) {
+          outputValueSol = formatScaled(
+            valueFromAmount(outputAmount, outputDecimals, outputPriceScaled),
+            priceDecimals,
+          );
+        }
+      } catch {
+        inputValueSol = null;
+        outputValueSol = null;
+      }
       await ctx.tradeJournal.append({
         type: "swap",
         signature: result.signature,
@@ -890,6 +973,8 @@ export function registerDefaultTools(
         outputMint: input.quoteResponse.outputMint,
         inAmount: input.quoteResponse.inAmount,
         outAmount: input.quoteResponse.outAmount,
+        inValueSol: inputValueSol,
+        outValueSol: outputValueSol,
       });
       return {
         signature: result.signature,
