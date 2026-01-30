@@ -70,10 +70,15 @@ const PricesSchema = z.object({
   venue: z.string().optional(),
 });
 
+const TokenMetadataSchema = z.object({
+  mint: z.string().min(1),
+});
+
 export const TOOL_VALIDATORS: Record<string, z.ZodTypeAny> = {
   "wallet.get_balances": BalancesSchema,
   "market.jupiter_quote": QuoteSchema,
   "market.get_prices": PricesSchema,
+  "market.token_metadata": TokenMetadataSchema,
   "risk.check_trade": RiskSchema,
   "trade.jupiter_swap": TradeSchema,
   "notify.emit": NotifySchema,

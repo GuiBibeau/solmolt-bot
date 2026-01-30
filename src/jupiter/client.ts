@@ -30,6 +30,7 @@ export type TokenInfo = {
   id: string;
   name?: string;
   symbol?: string;
+  icon?: string | null;
   decimals: number;
   usdPrice?: number | null;
 };

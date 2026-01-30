@@ -135,6 +135,19 @@ integrationTest("market.get_prices (integration)", async () => {
   expect(result.prices[0].mint).toBe(priceMint);
 });
 
+integrationTest("market.token_metadata (integration)", async () => {
+  const { registry, ctx } = setup();
+  const mint =
+    process.env.METADATA_MINT || "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+
+  const result = (await registry.invoke("market.token_metadata", ctx, {
+    mint,
+  })) as { symbol: string; decimals: number };
+
+  expect(result.symbol).toBeTruthy();
+  expect(Number.isFinite(result.decimals)).toBe(true);
+});
+
 swapTest("swap simulation (build + sign + simulate)", async () => {
   const { registry, ctx, jupiter, config } = setup();
   if (!config.wallet.privateKey && !config.wallet.keyfilePath) {

@@ -335,6 +335,41 @@ export function registerDefaultTools(
   });
 
   registry.register({
+    name: "market.token_metadata",
+    description: "Fetch token metadata (name, symbol, decimals, logo).",
+    schema: {
+      name: "market.token_metadata",
+      description: "Fetch token metadata (name, symbol, decimals, logo).",
+      parameters: {
+        type: "object",
+        properties: {
+          mint: { type: "string" },
+        },
+        required: ["mint"],
+        additionalProperties: false,
+      },
+    },
+    requires: { config: ["jupiter.apiKey"] },
+    execute: async (_ctx: ToolContext, input: { mint: string }) => {
+      const mint = input.mint.trim();
+      if (!mint) {
+        throw new Error("mint-required");
+      }
+      const tokenInfoMap = await getTokenInfoMap([mint]);
+      const token = tokenInfoMap.get(mint);
+      if (!token) {
+        throw new Error("token-not-found");
+      }
+      return {
+        name: token.name ?? "",
+        symbol: token.symbol ?? "",
+        decimals: token.decimals,
+        logoUrl: token.icon ?? null,
+      };
+    },
+  });
+
+  registry.register({
     name: "risk.check_trade",
     description: "Deterministic allow/deny with policy constraints.",
     schema: {
