@@ -202,6 +202,22 @@ integrationTest("market.raydium_pool_stats (integration)", async () => {
   expect(Number.isFinite(result.feeTierBps)).toBe(true);
 });
 
+integrationTest("market.switchboard_price (integration)", async () => {
+  if (!process.env.SWITCHBOARD_FEED_ID) {
+    return;
+  }
+  const { registry, ctx } = setup();
+  const feedId = process.env.SWITCHBOARD_FEED_ID;
+
+  const result = (await registry.invoke("market.switchboard_price", ctx, {
+    feedId,
+  })) as { price: string; stddev: string; ts: string };
+
+  expect(result.price).toBeTruthy();
+  expect(result.stddev).toBeTruthy();
+  expect(result.ts).toBeTruthy();
+});
+
 integrationTest("risk.daily_pnl_snapshot (integration)", async () => {
   const { registry, ctx } = setup();
   const date = new Date().toISOString().slice(0, 10);

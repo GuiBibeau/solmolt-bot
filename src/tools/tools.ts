@@ -30,6 +30,7 @@ export function registerDefaultTools(
     "1d": { type: "1D", seconds: 86_400 },
   };
   const raydiumBaseUrl = "https://api.raydium.io";
+  const switchboardBaseUrl = "https://ondemand.switchboard.xyz";
   let raydiumPairsCache: {
     ts: number;
     data: Array<Record<string, unknown>>;
@@ -244,6 +245,15 @@ export function registerDefaultTools(
         ? value
         : Number(typeof value === "string" ? value : "");
     return Number.isFinite(num) ? num : null;
+  };
+
+  const fetchSwitchboardFeed = async (feedId: string) => {
+    const url = new URL(`/solana/mainnet/feed/${feedId}`, switchboardBaseUrl);
+    const response = await fetch(url.toString(), { method: "GET" });
+    if (!response.ok) {
+      throw new Error(`Switchboard feed failed: ${response.status}`);
+    }
+    return (await response.json()) as Record<string, unknown>;
   };
 
   const computePriceSnapshot = async (
@@ -660,6 +670,52 @@ export function registerDefaultTools(
         volume24hUsd: String(volume24hUsd ?? 0),
         feeTierBps,
         ts: new Date().toISOString(),
+      };
+    },
+  });
+
+  registry.register({
+    name: "market.switchboard_price",
+    description: "Fetch latest Switchboard price feed data.",
+    schema: {
+      name: "market.switchboard_price",
+      description: "Fetch latest Switchboard price feed data.",
+      parameters: {
+        type: "object",
+        properties: {
+          feedId: { type: "string" },
+        },
+        required: ["feedId"],
+        additionalProperties: false,
+      },
+    },
+    execute: async (_ctx: ToolContext, input: { feedId: string }) => {
+      const feedId = input.feedId.trim();
+      if (!feedId) {
+        throw new Error("feed-id-required");
+      }
+      const payload = await fetchSwitchboardFeed(feedId);
+      const rawPrice =
+        payload.price ?? payload.result ?? payload.exchange_rate ?? null;
+      const rawStddev =
+        payload.stddev ?? payload.stdDev ?? payload.std_deviation ?? null;
+      const rawTs = payload.timestamp ?? payload.ts ?? payload.time ?? null;
+
+      const price = rawPrice !== null ? String(rawPrice) : "";
+      const stddev = rawStddev !== null ? String(rawStddev) : "0";
+      let ts = "";
+      if (typeof rawTs === "number" || typeof rawTs === "string") {
+        const numeric = Number(rawTs);
+        if (Number.isFinite(numeric)) {
+          const ms = numeric > 1_000_000_000_000 ? numeric : numeric * 1000;
+          ts = new Date(ms).toISOString();
+        }
+      }
+
+      return {
+        price,
+        stddev,
+        ts,
       };
     },
   });
