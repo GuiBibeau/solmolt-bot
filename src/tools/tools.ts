@@ -64,19 +64,16 @@ export function registerDefaultTools(
     const output = new Map<string, TokenInfo | null>();
     const missing = mints.filter((mint) => !tokenCache.has(mint));
     if (missing.length > 0) {
-      const chunks = chunk(missing, 100);
-      for (const batch of chunks) {
-        const results = await jupiter.searchTokens(batch.join(","));
-        const seen = new Set<string>();
-        for (const token of results) {
-          tokenCache.set(token.id, token);
-          seen.add(token.id);
-        }
-        for (const mint of batch) {
-          if (!seen.has(mint)) {
-            tokenCache.set(mint, null);
+      const batches = chunk(missing, 10);
+      for (const batch of batches) {
+        await mapWithConcurrency(batch, 5, async (mint) => {
+          const results = await jupiter.searchTokens(mint);
+          const matched = results.find((token) => token.id === mint) ?? null;
+          tokenCache.set(mint, matched);
+          if (matched) {
+            tokenCache.set(matched.id, matched);
           }
-        }
+        });
       }
     }
     for (const mint of mints) {
