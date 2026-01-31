@@ -20,6 +20,7 @@ export function registerDefaultTools(
   const defaultSlippageBps = 50;
   const defaultSolNotional = 1_000_000_000n;
   const birdeyeBaseUrl = "https://public-api.birdeye.so";
+  const kalshiBaseUrl = "https://api.elections.kalshi.com/trade-api/v2";
   const candleIntervals: Record<string, { type: string; seconds: number }> = {
     "1m": { type: "1m", seconds: 60 },
     "5m": { type: "5m", seconds: 300 },
@@ -245,6 +246,44 @@ export function registerDefaultTools(
         ? value
         : Number(typeof value === "string" ? value : "");
     return Number.isFinite(num) ? num : null;
+  };
+
+  const toIsoTimestamp = (value: unknown): string => {
+    if (typeof value !== "number" && typeof value !== "string") return "";
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return "";
+    const ms = numeric > 1_000_000_000_000 ? numeric : numeric * 1000;
+    return new Date(ms).toISOString();
+  };
+
+  const fetchKalshiMarkets = async (
+    params: Record<string, string>,
+  ): Promise<Record<string, unknown>> => {
+    const url = new URL("markets", `${kalshiBaseUrl}/`);
+    for (const [key, value] of Object.entries(params)) {
+      url.searchParams.set(key, value);
+    }
+    const response = await fetch(url.toString(), { method: "GET" });
+    if (!response.ok) {
+      throw new Error(`Kalshi markets failed: ${response.status}`);
+    }
+    return (await response.json()) as Record<string, unknown>;
+  };
+
+  const fetchKalshiOrderbook = async (
+    ticker: string,
+    depth = 1,
+  ): Promise<Record<string, unknown>> => {
+    const url = new URL(
+      `markets/${encodeURIComponent(ticker)}/orderbook`,
+      `${kalshiBaseUrl}/`,
+    );
+    url.searchParams.set("depth", depth.toString());
+    const response = await fetch(url.toString(), { method: "GET" });
+    if (!response.ok) {
+      throw new Error(`Kalshi orderbook failed: ${response.status}`);
+    }
+    return (await response.json()) as Record<string, unknown>;
   };
 
   const fetchSwitchboardFeed = async (feedId: string) => {
@@ -624,6 +663,100 @@ export function registerDefaultTools(
         limit: input.limit ?? 200,
       });
       return { candles };
+    },
+  });
+
+  registry.register({
+    name: "market.prediction_markets_list",
+    description: "List active prediction markets for a venue.",
+    schema: {
+      name: "market.prediction_markets_list",
+      description: "List active prediction markets for a venue.",
+      parameters: {
+        type: "object",
+        properties: {
+          venue: { type: "string" },
+        },
+        required: ["venue"],
+        additionalProperties: false,
+      },
+    },
+    execute: async (_ctx: ToolContext, input: { venue: string }) => {
+      const venue = input.venue.trim().toLowerCase();
+      if (venue !== "kalshi") {
+        throw new Error("unsupported-venue");
+      }
+      const payload = await fetchKalshiMarkets({
+        limit: "50",
+        status: "open",
+      });
+      const markets =
+        (payload.markets as Array<Record<string, unknown>> | undefined) ?? [];
+      return {
+        markets: markets.map((market) => ({
+          id: String(
+            market.ticker ??
+              market.id ??
+              market.market_ticker ??
+              market.symbol ??
+              "",
+          ),
+          title: String(market.title ?? market.event_title ?? ""),
+          endTime: toIsoTimestamp(
+            market.close_time ??
+              market.close_ts ??
+              market.expiration_time ??
+              market.settlement_ts ??
+              "",
+          ),
+        })),
+      };
+    },
+  });
+
+  registry.register({
+    name: "market.prediction_market_quote",
+    description: "Fetch quote/odds snapshot for a prediction market.",
+    schema: {
+      name: "market.prediction_market_quote",
+      description: "Fetch quote/odds snapshot for a prediction market.",
+      parameters: {
+        type: "object",
+        properties: {
+          venue: { type: "string" },
+          marketId: { type: "string" },
+        },
+        required: ["venue", "marketId"],
+        additionalProperties: false,
+      },
+    },
+    execute: async (
+      _ctx: ToolContext,
+      input: { venue: string; marketId: string },
+    ) => {
+      const venue = input.venue.trim().toLowerCase();
+      if (venue !== "kalshi") {
+        throw new Error("unsupported-venue");
+      }
+      const ticker = input.marketId.trim();
+      if (!ticker) {
+        throw new Error("market-id-required");
+      }
+      const payload = await fetchKalshiOrderbook(ticker, 1);
+      const orderbook =
+        (payload.orderbook as Record<string, unknown> | undefined) ?? payload;
+      const yesLevels =
+        (orderbook.yes as Array<Array<number>> | undefined) ?? [];
+      const noLevels = (orderbook.no as Array<Array<number>> | undefined) ?? [];
+      const yesPrice = yesLevels[0]?.[0];
+      const noPrice = noLevels[0]?.[0];
+      const liquidity = (yesLevels[0]?.[1] ?? 0) + (noLevels[0]?.[1] ?? 0);
+      return {
+        yesPrice: yesPrice !== undefined ? String(yesPrice) : "",
+        noPrice: noPrice !== undefined ? String(noPrice) : "",
+        liquidity: String(liquidity),
+        ts: new Date().toISOString(),
+      };
     },
   });
 

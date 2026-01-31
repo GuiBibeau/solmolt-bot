@@ -184,6 +184,36 @@ integrationTest("market.candles (integration)", async () => {
   expect(result.candles[0].c).toBeTruthy();
 });
 
+integrationTest("market.prediction_markets_list (integration)", async () => {
+  if (!process.env.KALSHI_MARKETS_TEST) {
+    return;
+  }
+  const { registry, ctx } = setup();
+
+  const result = (await registry.invoke("market.prediction_markets_list", ctx, {
+    venue: "kalshi",
+  })) as { markets: Array<{ id: string; title: string }> };
+
+  expect(Array.isArray(result.markets)).toBe(true);
+});
+
+integrationTest("market.prediction_market_quote (integration)", async () => {
+  if (!process.env.KALSHI_MARKET_ID) {
+    return;
+  }
+  const { registry, ctx } = setup();
+  const marketId = process.env.KALSHI_MARKET_ID;
+
+  const result = (await registry.invoke("market.prediction_market_quote", ctx, {
+    venue: "kalshi",
+    marketId,
+  })) as { yesPrice: string; noPrice: string; liquidity: string; ts: string };
+
+  expect(result.yesPrice).toBeTruthy();
+  expect(result.noPrice).toBeTruthy();
+  expect(result.ts).toBeTruthy();
+});
+
 integrationTest("market.raydium_pool_stats (integration)", async () => {
   if (!process.env.RAYDIUM_POOL_ID) {
     return;
