@@ -28,6 +28,14 @@ gateway:
   authToken: "<REPLACE_ME>"
 tools:
   skillsDir: "skills"
+openclaw:
+  # pluginsDir: "openclaw-plugins"
+  # gateway:
+  #   baseUrl: "http://127.0.0.1:18789"
+  #   token: "<REPLACE_ME>"
+  #   sessionKey: ""
+  #   messageChannel: ""
+  #   accountId: ""
 notify:
   # webhookUrl: "https://example.com/webhook"
 policy:

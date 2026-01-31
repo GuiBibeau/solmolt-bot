@@ -61,6 +61,7 @@ function buildConfig(): RalphConfig {
     tools: {
       skillsDir: "skills",
     },
+    openclaw: {},
     notify: {},
     policy: {
       killSwitch: false,

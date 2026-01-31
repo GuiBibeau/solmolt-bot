@@ -11,6 +11,7 @@ import { SessionJournal, TradeJournal } from "../journal/index.js";
 import { JupiterClient } from "../jupiter/client.js";
 import { createSolanaAdapter } from "../solana/index.js";
 import { loadSkillsFromDir } from "../tools/loader.js";
+import { loadOpenClawPluginsFromDir } from "../tools/openclaw.js";
 import { ToolRegistry } from "../tools/registry.js";
 import { registerDefaultTools } from "../tools/tools.js";
 import { isRecord } from "../util/types.js";
@@ -36,6 +37,7 @@ program
       );
       registerDefaultTools(registry, jupiter);
       await loadSkillsFromDir(registry, config.tools.skillsDir);
+      await loadOpenClawPluginsFromDir(registry, config.openclaw.pluginsDir);
 
       const ctx = {
         config,

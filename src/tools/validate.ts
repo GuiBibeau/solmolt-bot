@@ -129,6 +129,12 @@ const LiquidityByMintSchema = z.object({
   mint: z.string().min(1),
 });
 
+const OpenClawInvokeSchema = z.object({
+  tool: z.string().min(1),
+  args: z.record(z.unknown()).optional(),
+  action: z.string().optional(),
+});
+
 export const TOOL_VALIDATORS: Record<string, z.ZodTypeAny> = {
   "wallet.get_balances": BalancesSchema,
   "market.jupiter_quote": QuoteSchema,
@@ -142,6 +148,7 @@ export const TOOL_VALIDATORS: Record<string, z.ZodTypeAny> = {
   "market.raydium_pool_stats": RaydiumPoolSchema,
   "market.switchboard_price": SwitchboardPriceSchema,
   "market.liquidity_by_mint": LiquidityByMintSchema,
+  "openclaw.invoke": OpenClawInvokeSchema,
   "risk.max_position_check": MaxPositionSchema,
   "risk.daily_pnl_snapshot": DailyPnlSchema,
   "risk.check_trade": RiskSchema,

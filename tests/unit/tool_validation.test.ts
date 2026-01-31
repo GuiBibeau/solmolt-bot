@@ -20,6 +20,7 @@ const stubConfig: RalphConfig = {
   autopilot: { enabled: false, intervalMs: 15000 },
   gateway: { bind: "127.0.0.1", port: 8787, authToken: "test" },
   tools: { skillsDir: "skills" },
+  openclaw: {},
   notify: {},
   policy: {
     killSwitch: false,

@@ -59,6 +59,20 @@ const ConfigSchema = z.object({
       skillsDir: z.string().default("skills"),
     })
     .default({}),
+  openclaw: z
+    .object({
+      pluginsDir: z.string().optional(),
+      gateway: z
+        .object({
+          baseUrl: z.string().min(1),
+          token: z.string().min(1),
+          sessionKey: z.string().optional(),
+          messageChannel: z.string().optional(),
+          accountId: z.string().optional(),
+        })
+        .optional(),
+    })
+    .default({}),
   notify: z
     .object({
       webhookUrl: z.string().optional(),
@@ -151,6 +165,16 @@ export function loadConfig(configPath?: string): RalphConfig {
     },
     tools: {
       skillsDir: process.env.SKILLS_DIR,
+    },
+    openclaw: {
+      pluginsDir: process.env.OPENCLAW_PLUGINS_DIR,
+      gateway: {
+        baseUrl: process.env.OPENCLAW_GATEWAY_URL,
+        token: process.env.OPENCLAW_GATEWAY_TOKEN,
+        sessionKey: process.env.OPENCLAW_GATEWAY_SESSION,
+        messageChannel: process.env.OPENCLAW_MESSAGE_CHANNEL,
+        accountId: process.env.OPENCLAW_ACCOUNT_ID,
+      },
     },
   };
 
