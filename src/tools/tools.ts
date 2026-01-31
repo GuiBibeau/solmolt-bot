@@ -259,7 +259,7 @@ export function registerDefaultTools(
   const fetchKalshiMarkets = async (
     params: Record<string, string>,
   ): Promise<Record<string, unknown>> => {
-    const url = new URL("/markets", kalshiBaseUrl);
+    const url = new URL("markets", `${kalshiBaseUrl}/`);
     for (const [key, value] of Object.entries(params)) {
       url.searchParams.set(key, value);
     }
@@ -275,8 +275,8 @@ export function registerDefaultTools(
     depth = 1,
   ): Promise<Record<string, unknown>> => {
     const url = new URL(
-      `/markets/${encodeURIComponent(ticker)}/orderbook`,
-      kalshiBaseUrl,
+      `markets/${encodeURIComponent(ticker)}/orderbook`,
+      `${kalshiBaseUrl}/`,
     );
     url.searchParams.set("depth", depth.toString());
     const response = await fetch(url.toString(), { method: "GET" });
