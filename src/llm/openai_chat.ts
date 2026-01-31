@@ -58,8 +58,20 @@ export class OpenAiChatClient implements LlmClient {
       }),
     );
 
+    const role =
+      choice.role === "system" ||
+      choice.role === "user" ||
+      choice.role === "assistant" ||
+      choice.role === "tool"
+        ? choice.role
+        : "assistant";
+
     return {
-      message: choice,
+      message: {
+        role,
+        content: choice.content ?? null,
+        tool_calls: choice.tool_calls,
+      },
       text: choice.content ?? null,
       toolCalls,
     };

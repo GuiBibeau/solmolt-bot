@@ -2,6 +2,7 @@ import { createLlmClient } from "../llm/index.js";
 import type { LlmClient, LlmMessage, LlmToolCall } from "../llm/types.js";
 import type { ToolContext, ToolRegistry } from "../tools/registry.js";
 import { info, warn } from "../util/logger.js";
+import { isRecord } from "../util/types.js";
 import type { AgentTickReason, AgentTickResult } from "./types.js";
 
 export type AutopilotPlan = {
@@ -60,7 +61,7 @@ export class AgentOrchestrator {
     try {
       const actions: string[] = [];
       const policy = this.ctx.config.policy;
-      const plan = this.ctx.config.autopilot.plan as AutopilotPlan | undefined;
+      const plan = this.ctx.config.autopilot.plan;
 
       if (policy.killSwitch) {
         await this.notify("warn", "Kill switch enabled; skipping tick.", {
@@ -152,12 +153,7 @@ export class AgentOrchestrator {
   }
 
   private ensureSystemPrompt(plan?: AutopilotPlan): void {
-    if (
-      this.state.messages.find((msg) => {
-        const role = (msg as { role?: unknown }).role;
-        return typeof role === "string" && role === "system";
-      })
-    ) {
+    if (this.state.messages.some((msg) => msg.role === "system")) {
       return;
     }
     const policy = this.ctx.config.policy;
@@ -187,7 +183,10 @@ export class AgentOrchestrator {
     for (const call of toolCalls) {
       let args: Record<string, unknown> = {};
       try {
-        args = JSON.parse(call.arguments || "{}") as Record<string, unknown>;
+        const parsed = JSON.parse(call.arguments || "{}");
+        if (isRecord(parsed)) {
+          args = parsed;
+        }
       } catch (_err) {
         await this.notify("warn", "Failed to parse tool arguments.", {
           tool: call.name,

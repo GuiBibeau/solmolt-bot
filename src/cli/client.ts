@@ -1,6 +1,7 @@
 import WebSocket from "ws";
 import type { RalphConfig } from "../config/config.js";
 import { randomId } from "../util/id.js";
+import { isRecord } from "../util/types.js";
 
 export type CliCommand =
   | { method: "status" }
@@ -55,7 +56,11 @@ function waitForResponse(
   return new Promise((resolve, reject) => {
     const handler = (raw: WebSocket.RawData) => {
       try {
-        const msg = JSON.parse(raw.toString()) as Record<string, unknown>;
+        const parsed = JSON.parse(raw.toString());
+        if (!isRecord(parsed)) {
+          throw new Error("invalid response");
+        }
+        const msg = parsed;
         if (msg.id === id) {
           ws.off("message", handler);
           if (msg.error) {

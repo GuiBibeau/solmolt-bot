@@ -1,5 +1,6 @@
 import type { QuoteSummary } from "../tools/types.js";
 import { sleep } from "../util/time.js";
+import { isRecord } from "../util/types.js";
 import type { JupiterQuoteResponse, JupiterSwapResponse } from "./schema.js";
 import {
   JupiterQuoteResponseSchema,
@@ -131,7 +132,15 @@ export class JupiterClient {
       throw new Error(`Jupiter program-id-to-label failed: ${response.status}`);
     }
 
-    return (await response.json()) as Record<string, string>;
+    const payload = await response.json();
+    if (!isRecord(payload)) return {};
+    const output: Record<string, string> = {};
+    for (const [key, value] of Object.entries(payload)) {
+      if (typeof value === "string") {
+        output[key] = value;
+      }
+    }
+    return output;
   }
 
   async searchTokens(query: string): Promise<TokenInfo[]> {
@@ -147,7 +156,26 @@ export class JupiterClient {
       });
 
       if (response.ok) {
-        return (await response.json()) as TokenInfo[];
+        const payload = await response.json();
+        if (!Array.isArray(payload)) return [];
+        return payload
+          .filter(
+            (item): item is TokenInfo =>
+              isRecord(item) &&
+              typeof item.id === "string" &&
+              typeof item.decimals === "number",
+          )
+          .map((item) => ({
+            id: item.id,
+            name: typeof item.name === "string" ? item.name : undefined,
+            symbol: typeof item.symbol === "string" ? item.symbol : undefined,
+            icon:
+              typeof item.icon === "string" || item.icon === null
+                ? item.icon
+                : undefined,
+            decimals: item.decimals,
+            usdPrice: typeof item.usdPrice === "number" ? item.usdPrice : null,
+          }));
       }
 
       if (response.status === 429 || response.status >= 500) {

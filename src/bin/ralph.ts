@@ -13,6 +13,7 @@ import { createSolanaAdapter } from "../solana/index.js";
 import { loadSkillsFromDir } from "../tools/loader.js";
 import { ToolRegistry } from "../tools/registry.js";
 import { registerDefaultTools } from "../tools/tools.js";
+import { isRecord } from "../util/types.js";
 
 const program = new Command();
 
@@ -101,7 +102,8 @@ program
   .option("-i, --input <json>", "JSON input payload", "{}")
   .action(async (name: string, options: { input: string }) => {
     const config = loadConfig(program.opts().config);
-    const input = JSON.parse(options.input || "{}") as Record<string, unknown>;
+    const parsed = JSON.parse(options.input || "{}");
+    const input = isRecord(parsed) ? parsed : {};
     await runCliCommand(config, {
       method: "tool.invoke",
       params: { name, input },

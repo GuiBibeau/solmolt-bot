@@ -12,8 +12,8 @@ export type AgentHandle = {
 };
 
 export type AgentControl = {
-  message: (
-    content: string,
-    triggerTick?: boolean,
-  ) => Promise<AgentTickResult | { ok: true }>;
+  message: (input: {
+    content: string;
+    triggerTick?: boolean;
+  }) => Promise<AgentTickResult | { ok: true }>;
 };

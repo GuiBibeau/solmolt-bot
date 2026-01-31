@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import YAML from "yaml";
 import { z } from "zod";
+import { isRecord } from "../util/types.js";
 
 const PolicySchema = z.object({
   killSwitch: z.boolean().default(false),
@@ -97,8 +98,9 @@ function deepMerge(
   for (const [key, value] of Object.entries(override)) {
     if (value === undefined) continue;
     if (value && typeof value === "object" && !Array.isArray(value)) {
-      const baseValue = (base[key] ?? {}) as Record<string, unknown>;
-      output[key] = deepMerge(baseValue, value as Record<string, unknown>);
+      const baseValue = isRecord(base[key]) ? base[key] : {};
+      const overrideValue = isRecord(value) ? value : {};
+      output[key] = deepMerge(baseValue, overrideValue);
     } else {
       output[key] = value;
     }
@@ -111,7 +113,8 @@ export function loadConfig(configPath?: string): RalphConfig {
     ? path.resolve(configPath)
     : path.resolve(process.env.RALPH_CONFIG || "ralph.config.yaml");
 
-  const fileConfig = parseConfigFile(resolvedPath) as Record<string, unknown>;
+  const parsedConfig = parseConfigFile(resolvedPath);
+  const fileConfig = isRecord(parsedConfig) ? parsedConfig : {};
 
   const envOverrides: Record<string, unknown> = {
     rpc: {
