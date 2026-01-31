@@ -130,6 +130,19 @@ export function loadConfig(configPath?: string): RalphConfig {
   const parsedConfig = parseConfigFile(resolvedPath);
   const fileConfig = isRecord(parsedConfig) ? parsedConfig : {};
 
+  const openclawGatewayBaseUrl = process.env.OPENCLAW_GATEWAY_URL;
+  const openclawGatewayToken = process.env.OPENCLAW_GATEWAY_TOKEN;
+  const openclawGatewayOverrides =
+    openclawGatewayBaseUrl || openclawGatewayToken
+      ? {
+          baseUrl: openclawGatewayBaseUrl,
+          token: openclawGatewayToken,
+          sessionKey: process.env.OPENCLAW_GATEWAY_SESSION,
+          messageChannel: process.env.OPENCLAW_MESSAGE_CHANNEL,
+          accountId: process.env.OPENCLAW_ACCOUNT_ID,
+        }
+      : undefined;
+
   const envOverrides: Record<string, unknown> = {
     rpc: {
       endpoint: process.env.RPC_ENDPOINT,
@@ -168,13 +181,9 @@ export function loadConfig(configPath?: string): RalphConfig {
     },
     openclaw: {
       pluginsDir: process.env.OPENCLAW_PLUGINS_DIR,
-      gateway: {
-        baseUrl: process.env.OPENCLAW_GATEWAY_URL,
-        token: process.env.OPENCLAW_GATEWAY_TOKEN,
-        sessionKey: process.env.OPENCLAW_GATEWAY_SESSION,
-        messageChannel: process.env.OPENCLAW_MESSAGE_CHANNEL,
-        accountId: process.env.OPENCLAW_ACCOUNT_ID,
-      },
+      ...(openclawGatewayOverrides
+        ? { gateway: openclawGatewayOverrides }
+        : {}),
     },
   };
 
