@@ -10,8 +10,11 @@ const LEVELS: Record<LogLevel, number> = {
 };
 
 function currentLevel(): number {
-  const level = (process.env.LOG_LEVEL || "info").toLowerCase() as LogLevel;
-  return LEVELS[level] ?? LEVELS.info;
+  const raw = (process.env.LOG_LEVEL || "info").toLowerCase();
+  if (raw === "debug" || raw === "info" || raw === "warn" || raw === "error") {
+    return LEVELS[raw];
+  }
+  return LEVELS.info;
 }
 
 export function log(

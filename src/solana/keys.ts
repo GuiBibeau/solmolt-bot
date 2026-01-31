@@ -15,8 +15,11 @@ export function loadSecretKey(value?: string, filePath?: string): Uint8Array {
 function parseSecretKeyString(raw: string): Uint8Array {
   const trimmed = raw.trim();
   if (trimmed.startsWith("[")) {
-    const arr = JSON.parse(trimmed) as number[];
-    return Uint8Array.from(arr);
+    const parsed = JSON.parse(trimmed);
+    if (Array.isArray(parsed)) {
+      return Uint8Array.from(parsed.map((value) => Number(value)));
+    }
+    throw new Error("Invalid wallet key JSON array.");
   }
   if (trimmed.startsWith("base64:")) {
     return Uint8Array.from(Buffer.from(trimmed.slice(7), "base64"));

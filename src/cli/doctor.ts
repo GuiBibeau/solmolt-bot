@@ -1,5 +1,6 @@
 import type { RalphConfig } from "../config/config.js";
 import { info, warn } from "../util/logger.js";
+import { isRecord } from "../util/types.js";
 
 export async function runDoctor(config: RalphConfig): Promise<void> {
   const results: { check: string; ok: boolean; detail?: string }[] = [];
@@ -75,11 +76,10 @@ async function checkRpc(
 
 function getConfigValue(config: RalphConfig, path: string): unknown {
   const segments = path.split(".");
-  let current: unknown = config as unknown;
+  let current: unknown = config;
   for (const segment of segments) {
-    if (!current || typeof current !== "object") return undefined;
-    const record = current as Record<string, unknown>;
-    current = record[segment];
+    if (!isRecord(current)) return undefined;
+    current = current[segment];
   }
   return current;
 }

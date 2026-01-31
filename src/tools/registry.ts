@@ -5,6 +5,7 @@ import type { ToolSchema } from "../llm/types.js";
 import type { SolanaAdapter } from "../solana/adapter.js";
 import { warn } from "../util/logger.js";
 import { redact } from "../util/redaction.js";
+import { isRecord } from "../util/types.js";
 import { TOOL_VALIDATORS } from "./validate.js";
 
 export type ToolContext = {
@@ -14,7 +15,10 @@ export type ToolContext = {
   tradeJournal: TradeJournal;
   agent?: AgentHandle;
   agentControl?: {
-    message: (content: string, triggerTick?: boolean) => Promise<unknown>;
+    message: (input: {
+      content: string;
+      triggerTick?: boolean;
+    }) => Promise<unknown>;
   };
 };
 
@@ -32,13 +36,13 @@ export type ToolDefinition<TInput = unknown, TOutput = unknown> = {
 };
 
 export class ToolRegistry {
-  private readonly tools = new Map<string, ToolDefinition>();
+  private readonly tools = new Map<string, ToolDefinition<unknown, unknown>>();
 
-  register(tool: ToolDefinition): void {
+  register<TInput, TOutput>(tool: ToolDefinition<TInput, TOutput>): void {
     if (this.tools.has(tool.name)) {
       throw new Error(`Tool already registered: ${tool.name}`);
     }
-    this.tools.set(tool.name, tool);
+    this.tools.set(tool.name, tool as ToolDefinition<unknown, unknown>);
   }
 
   list(): ToolDefinition[] {
@@ -83,8 +87,8 @@ export class ToolRegistry {
     await ctx.sessionJournal.append({
       type: "tool",
       name,
-      input: redact(input as Record<string, unknown>),
-      output: redact(result as Record<string, unknown>),
+      input: redact(input),
+      output: redact(result),
       ts: new Date().toISOString(),
     });
     return result;
@@ -109,11 +113,10 @@ export class ToolRegistry {
 
 function getConfigValue(config: RalphConfig, path: string): unknown {
   const segments = path.split(".");
-  let current: unknown = config as unknown;
+  let current: unknown = config;
   for (const segment of segments) {
-    if (!current || typeof current !== "object") return undefined;
-    const record = current as Record<string, unknown>;
-    current = record[segment];
+    if (!isRecord(current)) return undefined;
+    current = current[segment];
   }
   return current;
 }

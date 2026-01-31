@@ -24,6 +24,7 @@
     "test": "bun test",
     "test:unit": "bun test tests/unit",
     "test:integration": "bun test tests/integration",
+    "typecheck": "bunx tsc --noEmit",
     "lint": "biome check .",
     "lint:fix": "biome check . --write"
   },

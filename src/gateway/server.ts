@@ -4,6 +4,7 @@ import { SessionJournal } from "../journal/index.js";
 import type { ToolContext, ToolRegistry } from "../tools/registry.js";
 import { randomId } from "../util/id.js";
 import { error, info, warn } from "../util/logger.js";
+import { isRecord } from "../util/types.js";
 
 export type GatewayState = {
   autopilotEnabled: boolean;
@@ -151,7 +152,8 @@ export class GatewayServer {
         }
         case "tool.invoke": {
           const name = String(msg.params?.name ?? "");
-          const input = (msg.params?.input ?? {}) as Record<string, unknown>;
+          const rawInput = msg.params?.input;
+          const input = isRecord(rawInput) ? rawInput : {};
           const toolCtx = { ...this.ctx, sessionJournal: connCtx.journal };
           response = await this.registry.invoke(name, toolCtx, input);
           break;
