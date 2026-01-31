@@ -218,6 +218,26 @@ integrationTest("market.switchboard_price (integration)", async () => {
   expect(result.ts).toBeTruthy();
 });
 
+integrationTest("market.liquidity_by_mint (integration)", async () => {
+  if (!process.env.LIQUIDITY_MINT) {
+    return;
+  }
+  const { registry, ctx } = setup();
+  const mint =
+    process.env.LIQUIDITY_MINT ||
+    "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+
+  const result = (await registry.invoke("market.liquidity_by_mint", ctx, {
+    mint,
+  })) as {
+    totalTvlUsd: string;
+    pools: Array<{ venue: string; poolId: string; tvlUsd: string }>;
+  };
+
+  expect(result.totalTvlUsd).toBeTruthy();
+  expect(Array.isArray(result.pools)).toBe(true);
+});
+
 integrationTest("risk.daily_pnl_snapshot (integration)", async () => {
   const { registry, ctx } = setup();
   const date = new Date().toISOString().slice(0, 10);

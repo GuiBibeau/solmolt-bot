@@ -116,6 +116,10 @@ const SwitchboardPriceSchema = z.object({
   feedId: z.string().min(1),
 });
 
+const LiquidityByMintSchema = z.object({
+  mint: z.string().min(1),
+});
+
 export const TOOL_VALIDATORS: Record<string, z.ZodTypeAny> = {
   "wallet.get_balances": BalancesSchema,
   "market.jupiter_quote": QuoteSchema,
@@ -126,6 +130,7 @@ export const TOOL_VALIDATORS: Record<string, z.ZodTypeAny> = {
   "market.candles": CandlesSchema,
   "market.raydium_pool_stats": RaydiumPoolSchema,
   "market.switchboard_price": SwitchboardPriceSchema,
+  "market.liquidity_by_mint": LiquidityByMintSchema,
   "risk.max_position_check": MaxPositionSchema,
   "risk.daily_pnl_snapshot": DailyPnlSchema,
   "risk.check_trade": RiskSchema,

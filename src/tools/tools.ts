@@ -743,6 +743,55 @@ export function registerDefaultTools(
   });
 
   registry.register({
+    name: "market.liquidity_by_mint",
+    description: "Aggregate liquidity across top pools for a mint.",
+    schema: {
+      name: "market.liquidity_by_mint",
+      description: "Aggregate liquidity across top pools for a mint.",
+      parameters: {
+        type: "object",
+        properties: {
+          mint: { type: "string" },
+        },
+        required: ["mint"],
+        additionalProperties: false,
+      },
+    },
+    execute: async (_ctx: ToolContext, input: { mint: string }) => {
+      const mint = input.mint.trim();
+      if (!mint) {
+        throw new Error("mint-required");
+      }
+      const pairs = await fetchRaydiumPairs();
+      const matching = pairs.filter(
+        (item) => item.baseMint === mint || item.quoteMint === mint,
+      );
+      const pools = matching
+        .map((item) => {
+          const tvl = toNumber(item.liquidity);
+          return {
+            venue: "raydium",
+            poolId: String(item.ammId ?? item.lpMint ?? ""),
+            tvlUsd: String(tvl ?? 0),
+            tvlValue: tvl ?? 0,
+          };
+        })
+        .filter((pool) => pool.poolId)
+        .sort((a, b) => b.tvlValue - a.tvlValue);
+
+      const topPools = pools.slice(0, 10).map(({ tvlValue, ...rest }) => rest);
+      const totalTvl = pools
+        .slice(0, 10)
+        .reduce((sum, pool) => sum + pool.tvlValue, 0);
+
+      return {
+        totalTvlUsd: String(totalTvl),
+        pools: topPools,
+      };
+    },
+  });
+
+  registry.register({
     name: "market.get_prices",
     description:
       "Fetch spot prices for SOL/SPL pairs from a venue or best route.",
