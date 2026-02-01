@@ -1,3 +1,4 @@
+import { buildAutonomousPrompt } from "../agent/prompt.js";
 import { SessionJournal } from "../journal/index.js";
 import { createLlmClient } from "../llm/index.js";
 import type {
@@ -278,7 +279,10 @@ export class AgentManager implements AgentRuntime {
   ): Promise<RunResult> {
     const llm = this.getLlm(agent.model);
     const messages = await this.sessionStore.getMessages(request.sessionKey);
-    await this.ensureSystemPrompt(messages, agent, request.sessionKey);
+
+    const toolPolicy = this.resolveToolPolicy(agent, request);
+    const tools = this.filterTools(toolPolicy);
+    await this.ensureSystemPrompt(messages, agent, request.sessionKey, tools);
 
     const userMessage: LlmMessage = {
       role: "user",
@@ -287,12 +291,10 @@ export class AgentManager implements AgentRuntime {
     messages.push(userMessage);
     await this.appendMessage(request.sessionKey, userMessage);
 
-    const toolPolicy = this.resolveToolPolicy(agent, request);
-    const tools = this.filterTools(toolPolicy);
     const ctx = this.buildToolContext(request, runId, agent, toolPolicy);
 
     const actions: string[] = [];
-    const maxSteps = 4;
+    const maxSteps = 6;
     let lastAssistantText: string | null | undefined;
 
     for (let step = 0; step < maxSteps; step += 1) {
@@ -368,36 +370,33 @@ export class AgentManager implements AgentRuntime {
     return client;
   }
 
-  private buildSystemPrompt(agent: AgentDefinition): string {
+  private buildSystemPrompt(
+    agent: AgentDefinition,
+    tools: ToolSchema[],
+  ): string {
     const policy = this.baseCtx.config.policy;
     const plan = this.baseCtx.config.autopilot.plan;
     const instruction =
       agent.instructions ??
       "You are Serious Trader Ralph, an autonomous Solana trading agent.";
-    const lines = [
+    return buildAutonomousPrompt({
       instruction,
-      "Use the available tools to inspect balances, request quotes, check risk, and execute swaps.",
-      "Never ask for private keys or API keys. Assume tools handle signing.",
-      `Policy: killSwitch=${policy.killSwitch}, maxSlippageBps=${policy.maxSlippageBps}, maxPriceImpactPct=${policy.maxPriceImpactPct}, cooldownSeconds=${policy.cooldownSeconds}.`,
-      policy.allowedMints.length > 0
-        ? `Allowed mints: ${policy.allowedMints.join(", ")}`
-        : "Allowed mints: any",
-      plan
-        ? `Preferred plan: inputMint=${plan.inputMint}, outputMint=${plan.outputMint}, amount=${plan.amount}, slippageBps=${plan.slippageBps}.`
-        : "No preferred plan configured; decide dynamically.",
-    ];
-    return lines.join("\n");
+      policy,
+      plan,
+      tools,
+    });
   }
 
   private async ensureSystemPrompt(
     messages: LlmMessage[],
     agent: AgentDefinition,
     sessionKey: string,
+    tools: ToolSchema[],
   ): Promise<void> {
     if (messages.some((msg) => msg.role === "system")) return;
     const systemMessage: LlmMessage = {
       role: "system",
-      content: this.buildSystemPrompt(agent),
+      content: this.buildSystemPrompt(agent, tools),
     };
     messages.unshift(systemMessage);
     await this.appendMessage(sessionKey, systemMessage);

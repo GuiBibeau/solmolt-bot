@@ -1,8 +1,14 @@
 import { createLlmClient } from "../llm/index.js";
-import type { LlmClient, LlmMessage, LlmToolCall } from "../llm/types.js";
+import type {
+  LlmClient,
+  LlmMessage,
+  LlmToolCall,
+  ToolSchema,
+} from "../llm/types.js";
 import type { ToolContext, ToolRegistry } from "../tools/registry.js";
 import { info, warn } from "../util/logger.js";
 import { isRecord } from "../util/types.js";
+import { buildAutonomousPrompt } from "./prompt.js";
 import type { AgentTickReason, AgentTickResult } from "./types.js";
 
 export type AutopilotPlan = {
@@ -86,15 +92,15 @@ export class AgentOrchestrator {
         }
       }
 
-      this.ensureSystemPrompt(plan);
       const tools = this.registry.listSchemas(this.ctx.config);
+      this.ensureSystemPrompt(plan, tools);
 
       this.state.messages.push({
         role: "user",
         content: `Tick reason: ${reason}. Decide whether to take action. Use tools when needed.`,
       });
 
-      const maxSteps = 4;
+      const maxSteps = 6;
       for (let step = 0; step < maxSteps; step += 1) {
         const response = await this.llm.generate(this.state.messages, tools);
         this.state.messages.push(response.message);
@@ -152,26 +158,22 @@ export class AgentOrchestrator {
     }
   }
 
-  private ensureSystemPrompt(plan?: AutopilotPlan): void {
+  private ensureSystemPrompt(
+    plan: AutopilotPlan | undefined,
+    tools: ToolSchema[],
+  ): void {
     if (this.state.messages.some((msg) => msg.role === "system")) {
       return;
     }
-    const policy = this.ctx.config.policy;
-    const lines = [
-      "You are Serious Trader Ralph, an autonomous Solana trading agent.",
-      "Use the available tools to inspect balances, request quotes, check risk, and execute swaps.",
-      "Never ask for private keys or API keys. Assume tools handle signing.",
-      `Policy: killSwitch=${policy.killSwitch}, maxSlippageBps=${policy.maxSlippageBps}, maxPriceImpactPct=${policy.maxPriceImpactPct}, cooldownSeconds=${policy.cooldownSeconds}.`,
-      policy.allowedMints.length > 0
-        ? `Allowed mints: ${policy.allowedMints.join(", ")}`
-        : "Allowed mints: any",
-      plan
-        ? `Preferred plan: inputMint=${plan.inputMint}, outputMint=${plan.outputMint}, amount=${plan.amount}, slippageBps=${plan.slippageBps}.`
-        : "No preferred plan configured; decide dynamically.",
-    ];
     this.state.messages.unshift({
       role: "system",
-      content: lines.join("\n"),
+      content: buildAutonomousPrompt({
+        instruction:
+          "You are Serious Trader Ralph, an autonomous Solana trading agent.",
+        policy: this.ctx.config.policy,
+        plan,
+        tools,
+      }),
     });
   }
 
