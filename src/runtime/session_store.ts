@@ -9,7 +9,7 @@ export class SessionStore {
   constructor(private readonly baseDir = "sessions") {}
 
   async append(sessionKey: string, entry: SessionHistoryEntry): Promise<void> {
-    const filePath = path.join(this.baseDir, `${sessionKey}.jsonl`);
+    const filePath = this.resolveSessionPath(sessionKey);
     await appendJsonl(filePath, entry);
   }
 
@@ -17,7 +17,7 @@ export class SessionStore {
     sessionKey: string,
     limit?: number,
   ): Promise<SessionHistoryEntry[]> {
-    const filePath = path.join(this.baseDir, `${sessionKey}.jsonl`);
+    const filePath = this.resolveSessionPath(sessionKey);
     try {
       const raw = await fs.readFile(filePath, "utf8");
       const entries: SessionHistoryEntry[] = [];
@@ -81,6 +81,22 @@ export class SessionStore {
 
   getBaseDir(): string {
     return this.baseDir;
+  }
+
+  private resolveSessionPath(sessionKey: string): string {
+    if (!sessionKey) {
+      throw new Error("Invalid session key.");
+    }
+    if (sessionKey.includes("/") || sessionKey.includes("\\") || sessionKey.includes("\0")) {
+      throw new Error("Invalid session key.");
+    }
+    const baseDir = path.resolve(this.baseDir);
+    const filePath = path.resolve(baseDir, `${sessionKey}.jsonl`);
+    const relative = path.relative(baseDir, filePath);
+    if (relative.startsWith("..") || path.isAbsolute(relative)) {
+      throw new Error("Invalid session key.");
+    }
+    return filePath;
   }
 }
 
