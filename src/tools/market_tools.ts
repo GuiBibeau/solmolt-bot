@@ -1,3 +1,10 @@
+import { AnchorProvider, Wallet } from "@coral-xyz/anchor";
+import { Client as PhoenixClient } from "@ellipsis-labs/phoenix-sdk";
+import {
+  Market as OpenBookMarket,
+  OpenBookV2Client,
+} from "@openbook-dex/openbook-v2";
+import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import type { ToolContext, ToolRegistry } from "./registry.js";
 import type {
   KalshiOrderbook,
@@ -30,6 +37,64 @@ export function registerMarketTools(
     computePriceSnapshot,
     resolveVenueDexes,
   } = deps;
+
+  const buildConnection = (ctx: ToolContext): Connection =>
+    new Connection(ctx.config.rpc.endpoint, "confirmed");
+
+  const toStringOrEmpty = (value: number | null | undefined): string =>
+    value === null || value === undefined ? "" : String(value);
+
+  const fetchPhoenixTopOfBook = async (
+    connection: Connection,
+    market: string,
+  ): Promise<{
+    bid: number | null;
+    ask: number | null;
+    bidSize: number | null;
+    askSize: number | null;
+  }> => {
+    const marketKey = new PublicKey(market);
+    const client = await PhoenixClient.createWithoutConfig(connection, [
+      marketKey,
+    ]);
+    await client.reloadMarket(marketKey.toString());
+    const ladder = client.getUiLadder(marketKey.toString(), 1);
+    const bid = ladder.bids[0];
+    const ask = ladder.asks[0];
+    return {
+      bid: bid?.price ?? null,
+      ask: ask?.price ?? null,
+      bidSize: bid?.quantity ?? null,
+      askSize: ask?.quantity ?? null,
+    };
+  };
+
+  const fetchOpenBookTopOfBook = async (
+    connection: Connection,
+    market: string,
+  ): Promise<{
+    bid: number | null;
+    ask: number | null;
+    bidSize: number | null;
+    askSize: number | null;
+  }> => {
+    const wallet = new Wallet(Keypair.generate());
+    const provider = new AnchorProvider(connection, wallet, {
+      commitment: "confirmed",
+    });
+    const client = new OpenBookV2Client(provider);
+    const marketKey = new PublicKey(market);
+    const marketAccount = await OpenBookMarket.load(client, marketKey);
+    await marketAccount.loadOrderBook();
+    const bestBid = marketAccount.bids?.best();
+    const bestAsk = marketAccount.asks?.best();
+    return {
+      bid: bestBid?.price ?? null,
+      ask: bestAsk?.price ?? null,
+      bidSize: bestBid?.size ?? null,
+      askSize: bestAsk?.size ?? null,
+    };
+  };
 
   registry.register({
     name: "market.jupiter_quote",
@@ -359,6 +424,58 @@ export function registerMarketTools(
         tvlUsd: String(tvlUsd ?? 0),
         volume24hUsd: String(volume24hUsd ?? 0),
         feeTierBps,
+        ts: new Date().toISOString(),
+      };
+    },
+  });
+
+  registry.register({
+    name: "market.orderbook_snapshot",
+    description: "Fetch top-of-book snapshot for a Phoenix/OpenBook market.",
+    schema: {
+      name: "market.orderbook_snapshot",
+      description: "Fetch top-of-book snapshot for a Phoenix/OpenBook market.",
+      parameters: {
+        type: "object",
+        properties: {
+          venue: { type: "string" },
+          market: { type: "string" },
+        },
+        required: ["venue", "market"],
+        additionalProperties: false,
+      },
+    },
+    execute: async (
+      ctx: ToolContext,
+      input: { venue: string; market: string },
+    ) => {
+      const venue = input.venue.trim().toLowerCase();
+      const market = input.market.trim();
+      if (!venue) {
+        throw new Error("venue-required");
+      }
+      if (!market) {
+        throw new Error("market-required");
+      }
+      const connection = buildConnection(ctx);
+      let snapshot: {
+        bid: number | null;
+        ask: number | null;
+        bidSize: number | null;
+        askSize: number | null;
+      };
+      if (venue === "phoenix") {
+        snapshot = await fetchPhoenixTopOfBook(connection, market);
+      } else if (venue === "openbook") {
+        snapshot = await fetchOpenBookTopOfBook(connection, market);
+      } else {
+        throw new Error("unsupported-venue");
+      }
+      return {
+        bid: toStringOrEmpty(snapshot.bid),
+        ask: toStringOrEmpty(snapshot.ask),
+        bidSize: toStringOrEmpty(snapshot.bidSize),
+        askSize: toStringOrEmpty(snapshot.askSize),
         ts: new Date().toISOString(),
       };
     },
