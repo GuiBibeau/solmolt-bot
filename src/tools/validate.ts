@@ -113,6 +113,49 @@ const RunsWaitSchema = z.object({
   timeoutMs: z.number().int().positive().optional(),
 });
 
+const TaskStatusSchema = z.enum([
+  "open",
+  "in_progress",
+  "blocked",
+  "done",
+  "canceled",
+]);
+
+const TasksListSchema = z.object({
+  sessionKey: z.string().min(1).optional(),
+});
+
+const TasksCreateSchema = z.object({
+  title: z.string().min(1),
+  status: TaskStatusSchema.optional(),
+  metadata: z.record(z.unknown()).optional(),
+  sessionKey: z.string().min(1).optional(),
+});
+
+const TasksUpdateSchema = z.object({
+  taskId: z.string().min(1),
+  title: z.string().min(1).optional(),
+  status: TaskStatusSchema.optional(),
+  metadata: z.record(z.unknown()).optional(),
+  sessionKey: z.string().min(1).optional(),
+});
+
+const TasksAddNoteSchema = z.object({
+  taskId: z.string().min(1),
+  note: z.string().min(1),
+  sessionKey: z.string().min(1).optional(),
+});
+
+const TasksCompleteSchema = z.object({
+  taskId: z.string().min(1),
+  sessionKey: z.string().min(1).optional(),
+});
+
+const TasksCancelSchema = z.object({
+  taskId: z.string().min(1),
+  sessionKey: z.string().min(1).optional(),
+});
+
 const PricesSchema = z.object({
   mints: z.array(z.string().min(1)).min(1),
   venue: z.string().optional(),
@@ -209,4 +252,10 @@ export const TOOL_VALIDATORS: Record<string, z.ZodTypeAny> = {
   "sessions.spawn": SessionsSpawnSchema,
   "runs.status": RunsStatusSchema,
   "runs.wait": RunsWaitSchema,
+  "tasks.list": TasksListSchema,
+  "tasks.create": TasksCreateSchema,
+  "tasks.update": TasksUpdateSchema,
+  "tasks.add_note": TasksAddNoteSchema,
+  "tasks.complete": TasksCompleteSchema,
+  "tasks.cancel": TasksCancelSchema,
 };

@@ -5,6 +5,7 @@ import type { ToolRegistry } from "./registry.js";
 import { registerRiskTools } from "./risk_tools.js";
 import { registerRuntimeTools } from "./runtime_tools.js";
 import { registerSystemTools } from "./system_tools.js";
+import { registerTaskTools } from "./task_tools.js";
 import { createToolDeps } from "./tool_deps.js";
 import { registerTradeTools } from "./trade_tools.js";
 import { registerWalletTools } from "./wallet_tools.js";
@@ -21,4 +22,5 @@ export function registerDefaultTools(
   registerTradeTools(registry, deps);
   registerSystemTools(registry);
   registerRuntimeTools(registry);
+  registerTaskTools(registry);
 }
