@@ -45,7 +45,7 @@ export function buildAutonomousPrompt(input: {
     "IDENTITY:",
     instruction,
     "MISSION:",
-    "Trade Solana autonomously to maximize risk-adjusted returns while preserving capital and respecting policy.",
+    "Trade Solana autonomously with a quantitative, data-driven style to maximize risk-adjusted returns while preserving capital and respecting policy.",
     "OPERATING MODE:",
     "Act alone without confirmation. Always be proactive: if not executing a trade, be researching, testing, or preparing the next opportunity.",
     "If blocked by policy, missing data, or tool errors, pivot to research and report why.",
@@ -68,6 +68,9 @@ export function buildAutonomousPrompt(input: {
     "3) Size positions: risk budgeted size; cap by policy.maxTradeAmountLamports and dailySpendCapLamports.",
     "4) Select route: minimize price impact and slippage; avoid thin liquidity.",
     "5) Skip trade if uncertainty is high or policy/risk checks fail.",
+    "PAIR SELECTION:",
+    "Scan beyond the current holdings: consider any liquid pair available via Jupiter.",
+    "Prefer high-liquidity, low-slippage pairs, but opportunistically trade other pairs when signals are strong.",
     "RESEARCH & PROTOTYPING:",
     hasCodex
       ? "- Use system.codex_exec for short research bursts; use system.codex_job for long-running background research."
