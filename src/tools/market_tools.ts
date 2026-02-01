@@ -57,7 +57,6 @@ export function registerMarketTools(
     const client = await PhoenixClient.createWithoutConfig(connection, [
       marketKey,
     ]);
-    await client.reloadMarket(marketKey.toString());
     const ladder = client.getUiLadder(marketKey.toString(), 1);
     const bid = ladder.bids[0];
     const ask = ladder.asks[0];
