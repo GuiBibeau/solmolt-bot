@@ -378,3 +378,26 @@ test("invalid market.token_metadata args are rejected before execution", async (
     registry.invoke("market.token_metadata", ctx, { mint: "" }),
   ).rejects.toThrow(/validation/i);
 });
+
+test("invalid market.orderbook_snapshot args are rejected before execution", async () => {
+  const registry = new ToolRegistry();
+  const jupiter = new JupiterClient(
+    stubConfig.jupiter.baseUrl,
+    stubConfig.jupiter.apiKey,
+  );
+  registerDefaultTools(registry, jupiter);
+
+  const ctx = {
+    config: stubConfig,
+    solana: stubSolana,
+    sessionJournal: new SessionJournal("test", ".tmp/sessions"),
+    tradeJournal: new TradeJournal(".tmp/trades"),
+  };
+
+  await expect(
+    registry.invoke("market.orderbook_snapshot", ctx, {
+      venue: "",
+      market: "",
+    }),
+  ).rejects.toThrow(/validation/i);
+});

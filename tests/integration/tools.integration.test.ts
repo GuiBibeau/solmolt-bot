@@ -272,6 +272,32 @@ integrationTest("market.orca_pool_stats (integration)", async () => {
   expect(Number.isFinite(result.feeTierBps)).toBe(true);
 });
 
+integrationTest("market.orderbook_snapshot (integration)", async () => {
+  if (!process.env.ORDERBOOK_MARKET) {
+    return;
+  }
+  const { registry, ctx } = setup();
+  const venue = process.env.ORDERBOOK_VENUE || "phoenix";
+  const market = process.env.ORDERBOOK_MARKET;
+
+  const result = (await registry.invoke("market.orderbook_snapshot", ctx, {
+    venue,
+    market,
+  })) as {
+    bid: string;
+    ask: string;
+    bidSize: string;
+    askSize: string;
+    ts: string;
+  };
+
+  expect(typeof result.bid).toBe("string");
+  expect(typeof result.ask).toBe("string");
+  expect(typeof result.bidSize).toBe("string");
+  expect(typeof result.askSize).toBe("string");
+  expect(result.ts).toBeTruthy();
+});
+
 integrationTest("market.switchboard_price (integration)", async () => {
   if (!process.env.SWITCHBOARD_FEED_ID) {
     return;
