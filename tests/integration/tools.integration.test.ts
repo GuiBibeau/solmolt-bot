@@ -256,6 +256,22 @@ integrationTest("market.raydium_pool_stats (integration)", async () => {
   expect(Number.isFinite(result.feeTierBps)).toBe(true);
 });
 
+integrationTest("market.orca_pool_stats (integration)", async () => {
+  if (!process.env.ORCA_POOL_ID) {
+    return;
+  }
+  const { registry, ctx } = setup();
+  const poolId = process.env.ORCA_POOL_ID;
+
+  const result = (await registry.invoke("market.orca_pool_stats", ctx, {
+    poolId,
+  })) as { tvlUsd: string; volume24hUsd: string; feeTierBps: number };
+
+  expect(result.tvlUsd).toBeTruthy();
+  expect(result.volume24hUsd).toBeTruthy();
+  expect(Number.isFinite(result.feeTierBps)).toBe(true);
+});
+
 integrationTest("market.switchboard_price (integration)", async () => {
   if (!process.env.SWITCHBOARD_FEED_ID) {
     return;
