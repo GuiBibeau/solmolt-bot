@@ -151,6 +151,10 @@ const RaydiumPoolSchema = z.object({
   poolId: z.string().min(1),
 });
 
+const OrcaPoolSchema = z.object({
+  poolId: z.string().min(1),
+});
+
 const SwitchboardPriceSchema = z.object({
   feedId: z.string().min(1),
 });
@@ -176,6 +180,7 @@ export const TOOL_VALIDATORS: Record<string, z.ZodTypeAny> = {
   "market.prediction_markets_list": PredictionMarketsListSchema,
   "market.prediction_market_quote": PredictionMarketQuoteSchema,
   "market.raydium_pool_stats": RaydiumPoolSchema,
+  "market.orca_pool_stats": OrcaPoolSchema,
   "market.switchboard_price": SwitchboardPriceSchema,
   "market.liquidity_by_mint": LiquidityByMintSchema,
   "openclaw.invoke": OpenClawInvokeSchema,

@@ -31,6 +31,29 @@ export type RaydiumPair = {
   quoteMint?: string;
 };
 
+export type OrcaWhirlpool = {
+  address?: string;
+  tokenA?: {
+    mint?: string;
+    symbol?: string;
+    name?: string;
+    decimals?: number;
+  };
+  tokenB?: {
+    mint?: string;
+    symbol?: string;
+    name?: string;
+    decimals?: number;
+  };
+  tvl?: number | string;
+  volume?: {
+    day?: number | string;
+    week?: number | string;
+    month?: number | string;
+  };
+  lpFeeRate?: number | string;
+};
+
 export type KalshiMarket = {
   ticker?: string;
   id?: string;
@@ -123,6 +146,7 @@ export type ToolDeps = {
     }>
   >;
   fetchRaydiumPairs: () => Promise<RaydiumPair[]>;
+  fetchOrcaWhirlpools: () => Promise<OrcaWhirlpool[]>;
   toNumber: (value: string | number | null | undefined) => number | null;
   toIsoTimestamp: (value: string | number | null | undefined) => string;
   fetchKalshiMarkets: (
@@ -176,10 +200,15 @@ export function createToolDeps(jupiter: JupiterClient): ToolDeps {
     "1d": { type: "1D", seconds: 86_400 },
   };
   const raydiumBaseUrl = "https://api.raydium.io";
+  const orcaBaseUrl = "https://api.mainnet.orca.so";
   const switchboardBaseUrl = "https://ondemand.switchboard.xyz";
   let raydiumPairsCache: {
     ts: number;
     data: RaydiumPair[];
+  } | null = null;
+  let orcaWhirlpoolsCache: {
+    ts: number;
+    data: OrcaWhirlpool[];
   } | null = null;
 
   const getDexLabels = async (): Promise<string[]> => {
@@ -380,6 +409,28 @@ export function createToolDeps(jupiter: JupiterClient): ToolDeps {
     }
     const data = payload as RaydiumPair[];
     raydiumPairsCache = { ts: now, data };
+    return data;
+  };
+
+  const fetchOrcaWhirlpools = async (): Promise<OrcaWhirlpool[]> => {
+    const now = Date.now();
+    if (orcaWhirlpoolsCache && now - orcaWhirlpoolsCache.ts < 60_000) {
+      return orcaWhirlpoolsCache.data;
+    }
+    const url = new URL("/v1/whirlpool/list", orcaBaseUrl);
+    const response = await fetch(url.toString(), { method: "GET" });
+    if (!response.ok) {
+      throw new Error(`Orca whirlpools failed: ${response.status}`);
+    }
+    const payload = await response.json();
+    if (!payload || typeof payload !== "object") {
+      throw new Error("Orca whirlpools invalid payload");
+    }
+    const data = (payload as { whirlpools?: OrcaWhirlpool[] }).whirlpools;
+    if (!Array.isArray(data)) {
+      throw new Error("Orca whirlpools invalid payload");
+    }
+    orcaWhirlpoolsCache = { ts: now, data };
     return data;
   };
 
@@ -664,6 +715,7 @@ export function createToolDeps(jupiter: JupiterClient): ToolDeps {
     mapWithConcurrency,
     fetchCandles,
     fetchRaydiumPairs,
+    fetchOrcaWhirlpools,
     toNumber,
     toIsoTimestamp,
     fetchKalshiMarkets,

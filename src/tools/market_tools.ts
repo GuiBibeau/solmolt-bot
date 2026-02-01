@@ -18,6 +18,7 @@ export function registerMarketTools(
     fetchKalshiMarkets,
     fetchKalshiOrderbook,
     fetchRaydiumPairs,
+    fetchOrcaWhirlpools,
     fetchSwitchboardFeed,
     resolvePythFeedId,
     fetchPythPrice,
@@ -316,6 +317,44 @@ export function registerMarketTools(
       if (volume24hUsd && fee24hUsd) {
         feeTierBps = Math.round((fee24hUsd / volume24hUsd) * 10_000);
       }
+      return {
+        tvlUsd: String(tvlUsd ?? 0),
+        volume24hUsd: String(volume24hUsd ?? 0),
+        feeTierBps,
+        ts: new Date().toISOString(),
+      };
+    },
+  });
+
+  registry.register({
+    name: "market.orca_pool_stats",
+    description: "Fetch Orca pool stats (TVL, 24h volume, fee tier).",
+    schema: {
+      name: "market.orca_pool_stats",
+      description: "Fetch Orca pool stats (TVL, 24h volume, fee tier).",
+      parameters: {
+        type: "object",
+        properties: {
+          poolId: { type: "string" },
+        },
+        required: ["poolId"],
+        additionalProperties: false,
+      },
+    },
+    execute: async (_ctx: ToolContext, input: { poolId: string }) => {
+      const poolId = input.poolId.trim();
+      if (!poolId) {
+        throw new Error("pool-id-required");
+      }
+      const pools = await fetchOrcaWhirlpools();
+      const pool = pools.find((item) => item.address === poolId);
+      if (!pool) {
+        throw new Error("orca-pool-not-found");
+      }
+      const tvlUsd = toNumber(pool.tvl);
+      const volume24hUsd = toNumber(pool.volume?.day);
+      const feeRate = toNumber(pool.lpFeeRate);
+      const feeTierBps = feeRate ? Math.round(feeRate * 10_000) : 0;
       return {
         tvlUsd: String(tvlUsd ?? 0),
         volume24hUsd: String(volume24hUsd ?? 0),
