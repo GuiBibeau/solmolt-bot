@@ -1,10 +1,14 @@
 import { z } from "zod";
 
-const RoutePlanSchema = z.object({
-  swapInfo: z.object({
-    label: z.string().optional(),
-  }),
-});
+const RoutePlanSchema = z
+  .object({
+    swapInfo: z
+      .object({
+        label: z.string().optional(),
+      })
+      .passthrough(),
+  })
+  .passthrough();
 
 export const JupiterQuoteResponseSchema = z
   .object({
