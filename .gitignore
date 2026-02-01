@@ -3,5 +3,6 @@ dist/
 .env
 ralph.config.yaml
 sessions/
+runs/
 trades/
 .tmp/

@@ -22,6 +22,9 @@ export function registerSystemTools(registry: ToolRegistry): void {
       input: { reason: "timer" | "operator" | "recovery" },
     ) => {
       info("autopilot tick", { reason: input.reason });
+      if (ctx.runtime) {
+        return ctx.runtime.submitAutopilotTick(input.reason);
+      }
       if (ctx.agent) {
         return ctx.agent.tick(input.reason);
       }
@@ -43,6 +46,7 @@ export function registerSystemTools(registry: ToolRegistry): void {
         properties: {
           content: { type: "string" },
           triggerTick: { type: "boolean" },
+          sessionKey: { type: "string" },
         },
         required: ["content"],
         additionalProperties: false,
@@ -50,8 +54,15 @@ export function registerSystemTools(registry: ToolRegistry): void {
     },
     execute: async (
       ctx: ToolContext,
-      input: { content: string; triggerTick?: boolean },
+      input: { content: string; triggerTick?: boolean; sessionKey?: string },
     ) => {
+      if (ctx.runtime) {
+        return ctx.runtime.submitMessage({
+          sessionKey: input.sessionKey ?? "operator",
+          content: input.content,
+          triggerRun: input.triggerTick,
+        });
+      }
       if (!ctx.agentControl) {
         return { ok: false, error: "agent-control-missing" };
       }

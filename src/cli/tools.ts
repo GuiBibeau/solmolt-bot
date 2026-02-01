@@ -36,15 +36,21 @@ export async function installToolFromRegistry(
   const destDir = resolveInstallDir(config, target);
   await fs.mkdir(destDir, { recursive: true });
 
-  const fileName = resolveFilename(entry);
-  const destPath = path.join(destDir, fileName);
+  const destPath = resolveInstallPath(destDir, entry);
 
   if (!options.force) {
+    let exists = true;
     try {
       await fs.access(destPath);
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException | null)?.code;
+      if (code !== "ENOENT") {
+        throw err;
+      }
+      exists = false;
+    }
+    if (exists) {
       throw new Error(`tool already installed: ${destPath}`);
-    } catch {
-      // ok
     }
   }
 
@@ -54,6 +60,7 @@ export async function installToolFromRegistry(
     throw new Error(`registry download failed: ${response.status} ${body}`);
   }
   const content = await response.text();
+  await fs.mkdir(path.dirname(destPath), { recursive: true });
   await fs.writeFile(destPath, content, "utf8");
 
   info("tool.installed", { name: entry.name, target, path: destPath });
@@ -160,4 +167,49 @@ function resolveFilename(entry: RegistryEntry): string {
   }
   const safe = entry.name.replace(/[^a-zA-Z0-9._-]/g, "_");
   return `${safe}.js`;
+}
+
+function resolveInstallPath(destDir: string, entry: RegistryEntry): string {
+  const rawFileName = resolveFilename(entry);
+  const fileName = normalizeRegistryPath(rawFileName);
+  if (!isSafeRelativePath(fileName)) {
+    throw new Error(
+      `registry entry has unsafe filename (must be a relative path without "." or ".." segments): ${rawFileName}`,
+    );
+  }
+  const destRoot = path.resolve(destDir);
+  const destPath = path.resolve(destRoot, fileName);
+  if (!isPathWithinDir(destRoot, destPath)) {
+    throw new Error("resolved path escapes install dir");
+  }
+  return destPath;
+}
+
+function normalizeRegistryPath(fileName: string): string {
+  return fileName.replace(/\\/g, "/");
+}
+
+function isSafeRelativePath(fileName: string): boolean {
+  if (!fileName) return false;
+  if (path.posix.isAbsolute(fileName) || path.win32.isAbsolute(fileName)) {
+    return false;
+  }
+  if (/^[a-zA-Z]:/.test(fileName)) {
+    return false;
+  }
+  if (fileName.includes("\0")) return false;
+  const parts = fileName.split("/");
+  if (!parts.length) return false;
+  for (const part of parts) {
+    if (!part || part === "." || part === "..") return false;
+  }
+  return true;
+}
+
+function isPathWithinDir(root: string, target: string): boolean {
+  const rel = path.relative(root, target);
+  if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) {
+    return false;
+  }
+  return true;
 }

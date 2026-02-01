@@ -182,6 +182,14 @@ export class GatewayServer {
   private startAutopilot(): void {
     if (this.autopilotTimer) return;
     this.autopilotTimer = setInterval(() => {
+      if (this.ctx.runtime) {
+        try {
+          this.ctx.runtime.submitAutopilotTick("timer");
+        } catch (err) {
+          warn("autopilot tick failed", { err: String(err) });
+        }
+        return;
+      }
       if (this.ctx.agent) {
         this.ctx.agent
           .tick("timer")

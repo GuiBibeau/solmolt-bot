@@ -22,6 +22,15 @@ const stubConfig: RalphConfig = {
   tools: { skillsDir: "skills" },
   openclaw: {},
   notify: {},
+  runtime: {
+    sessionsDir: "sessions",
+    runsDir: "runs",
+    lanes: { main: 1, subagent: 4, autopilot: 1 },
+  },
+  agents: {
+    defaultAgentId: "main",
+    agents: {},
+  },
   policy: {
     killSwitch: false,
     allowedMints: [],

@@ -14,6 +14,37 @@ const PolicySchema = z.object({
   dailySpendCapLamports: z.string().optional(),
 });
 
+const ToolPolicySchema = z.object({
+  allow: z.array(z.string()).optional(),
+  deny: z.array(z.string()).optional(),
+  allowAll: z.boolean().optional(),
+});
+
+const AgentDefinitionSchema = z.object({
+  instructions: z.string().optional(),
+  model: z.string().optional(),
+  toolPolicy: ToolPolicySchema.optional(),
+  lane: z.string().optional(),
+  canSpawnSubagents: z.boolean().default(true),
+});
+
+const AgentsSchema = z
+  .object({
+    defaultAgentId: z.string().default("main"),
+    agents: z.record(AgentDefinitionSchema).default({}),
+  })
+  .default({});
+
+const RuntimeSchema = z
+  .object({
+    sessionsDir: z.string().default("sessions"),
+    runsDir: z.string().default("runs"),
+    lanes: z
+      .record(z.number().int().positive())
+      .default({ main: 1, subagent: 4, autopilot: 1 }),
+  })
+  .default({});
+
 const ConfigSchema = z.object({
   rpc: z.object({
     endpoint: z.string().min(1),
@@ -36,6 +67,7 @@ const ConfigSchema = z.object({
     baseUrl: z.string().min(1),
     apiKey: z.string().min(1),
     model: z.string().min(1),
+    toolMode: z.enum(["auto", "tools", "functions", "none"]).default("auto"),
   }),
   autopilot: z.object({
     enabled: z.boolean().default(false),
@@ -79,6 +111,8 @@ const ConfigSchema = z.object({
       webhookUrl: z.string().optional(),
     })
     .default({}),
+  runtime: RuntimeSchema,
+  agents: AgentsSchema,
   policy: PolicySchema,
 });
 
@@ -151,6 +185,7 @@ export function loadConfig(configPath?: string): RalphConfig {
       baseUrl: process.env.LLM_BASE_URL,
       apiKey: process.env.LLM_API_KEY,
       model: process.env.LLM_MODEL,
+      toolMode: process.env.LLM_TOOL_MODE,
     },
     autopilot: {
       enabled: envBool(process.env.AUTOPILOT_ENABLED),

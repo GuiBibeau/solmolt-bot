@@ -14,6 +14,7 @@ llm:
   baseUrl: "https://api.deepinfra.com/v1/openai"
   apiKey: "<REPLACE_ME>"
   model: "zai-org/GLM-4.7"
+  # toolMode: "auto" # auto|tools|functions|none
 autopilot:
   enabled: false
   intervalMs: 15000
@@ -37,6 +38,22 @@ openclaw:
   #   sessionKey: ""
   #   messageChannel: ""
   #   accountId: ""
+runtime:
+  sessionsDir: "sessions"
+  runsDir: "runs"
+  lanes:
+    main: 1
+    subagent: 4
+    autopilot: 1
+agents:
+  defaultAgentId: "main"
+  agents:
+    main:
+      # instructions: "You are Serious Trader Ralph, an autonomous Solana trading agent."
+      # model: "zai-org/GLM-4.7"
+      # lane: "main"
+      # toolPolicy:
+      #   deny: ["sessions.*", "runs.*"]
 notify:
   # webhookUrl: "https://example.com/webhook"
 policy:

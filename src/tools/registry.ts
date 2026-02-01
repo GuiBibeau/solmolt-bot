@@ -2,6 +2,8 @@ import type { AgentHandle } from "../agent/types.js";
 import type { RalphConfig } from "../config/config.js";
 import type { SessionJournal, TradeJournal } from "../journal/journal.js";
 import type { ToolSchema } from "../llm/types.js";
+import { isToolAllowed } from "../runtime/tool_policy.js";
+import type { AgentMeta, AgentRuntime, ToolPolicy } from "../runtime/types.js";
 import type { SolanaAdapter } from "../solana/adapter.js";
 import { warn } from "../util/logger.js";
 import { redact } from "../util/redaction.js";
@@ -20,6 +22,9 @@ export type ToolContext = {
       triggerTick?: boolean;
     }) => Promise<unknown>;
   };
+  runtime?: AgentRuntime;
+  agentMeta?: AgentMeta;
+  toolPolicy?: ToolPolicy;
 };
 
 export type ToolRequirement = {
@@ -71,6 +76,9 @@ export class ToolRegistry {
     if (!tool) throw new Error(`Tool not found: ${name}`);
     if (!this.isEligible(tool, ctx.config)) {
       throw new Error(`Tool not eligible: ${name}`);
+    }
+    if (ctx.toolPolicy && !isToolAllowed(ctx.toolPolicy, name)) {
+      throw new Error(`Tool not allowed: ${name}`);
     }
     const validator = TOOL_VALIDATORS[name];
     if (validator) {

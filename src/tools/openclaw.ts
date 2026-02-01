@@ -4,7 +4,7 @@ import { pathToFileURL } from "node:url";
 import type { ToolSchema } from "../llm/types.js";
 import { randomId } from "../util/id.js";
 import { error, info, warn } from "../util/logger.js";
-import { isRecord } from "../util/types.js";
+import { isErrnoException, isRecord } from "../util/types.js";
 import type { ToolContext, ToolRegistry } from "./registry.js";
 
 export type OpenClawJsonSchema = Record<string, unknown>;
@@ -179,6 +179,11 @@ export async function loadOpenClawPluginsFromDir(
   try {
     entries = await fs.readdir(resolved);
   } catch (err) {
+    if (isErrnoException(err) && err.code === "ENOENT") {
+      await fs.mkdir(resolved, { recursive: true });
+      info("openclaw plugins directory created", { dir: resolved });
+      return;
+    }
     warn("openclaw plugins directory missing or unreadable", {
       dir: resolved,
       err: String(err),

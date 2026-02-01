@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import { Command } from "commander";
-import { AgentController, AgentOrchestrator } from "../agent/index.js";
 import { sendAgentMessage } from "../cli/agent.js";
 import { runCliCommand } from "../cli/client.js";
 import { runDoctor } from "../cli/doctor.js";
@@ -10,6 +9,7 @@ import { loadConfig } from "../config/index.js";
 import { GatewayServer } from "../gateway/server.js";
 import { SessionJournal, TradeJournal } from "../journal/index.js";
 import { JupiterClient } from "../jupiter/client.js";
+import { AgentManager } from "../runtime/agent_manager.js";
 import { createSolanaAdapter } from "../solana/index.js";
 import { loadSkillsFromDir } from "../tools/loader.js";
 import { loadOpenClawPluginsFromDir } from "../tools/openclaw.js";
@@ -47,13 +47,8 @@ program
         tradeJournal: new TradeJournal(),
       };
 
-      const agent = new AgentOrchestrator(registry, {
-        ...ctx,
-        sessionJournal: new SessionJournal("agent"),
-      });
-      const agentControl = new AgentController(agent);
-
-      const gatewayCtx = { ...ctx, agent, agentControl };
+      const runtime = new AgentManager(registry, ctx);
+      const gatewayCtx = { ...ctx, runtime };
 
       const gateway = new GatewayServer(config, registry, gatewayCtx);
       gateway.start();

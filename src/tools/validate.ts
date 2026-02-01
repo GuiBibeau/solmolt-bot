@@ -81,6 +81,36 @@ const TickSchema = z.object({
 const AgentMessageSchema = z.object({
   content: z.string().min(1),
   triggerTick: z.boolean().optional(),
+  sessionKey: z.string().optional(),
+});
+
+const SessionsListSchema = z.object({});
+
+const SessionsHistorySchema = z.object({
+  sessionKey: z.string().min(1),
+  limit: z.number().int().positive().optional(),
+});
+
+const SessionsSendSchema = z.object({
+  sessionKey: z.string().min(1),
+  content: z.string().min(1),
+  agentId: z.string().optional(),
+  triggerRun: z.boolean().optional(),
+});
+
+const SessionsSpawnSchema = z.object({
+  task: z.string().min(1),
+  label: z.string().optional(),
+  agentId: z.string().optional(),
+});
+
+const RunsStatusSchema = z.object({
+  runId: z.string().min(1),
+});
+
+const RunsWaitSchema = z.object({
+  runId: z.string().min(1),
+  timeoutMs: z.number().int().positive().optional(),
 });
 
 const PricesSchema = z.object({
@@ -156,4 +186,10 @@ export const TOOL_VALIDATORS: Record<string, z.ZodTypeAny> = {
   "notify.emit": NotifySchema,
   "system.autopilot_tick": TickSchema,
   "agent.message": AgentMessageSchema,
+  "sessions.list": SessionsListSchema,
+  "sessions.history": SessionsHistorySchema,
+  "sessions.send": SessionsSendSchema,
+  "sessions.spawn": SessionsSpawnSchema,
+  "runs.status": RunsStatusSchema,
+  "runs.wait": RunsWaitSchema,
 };

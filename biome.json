@@ -26,6 +26,7 @@
       "**/*",
       "!!**/node_modules",
       "!!**/dist",
+      "!!**/runs",
       "!!**/sessions",
       "!!**/trades",
       "!!**/.tmp"
