@@ -31,6 +31,7 @@ export function buildAutonomousPrompt(input: {
   const hasSkillBuilder = tools.some(
     (tool) => tool.name === "system.skill_builder",
   );
+  const hasCodexJob = tools.some((tool) => tool.name === "system.codex_job");
   const toolCreationHint = [
     "TOOL CREATION:",
     hasSkillBuilder
@@ -60,11 +61,14 @@ export function buildAutonomousPrompt(input: {
     "5) Skip trade if uncertainty is high or policy/risk checks fail.",
     "RESEARCH & PROTOTYPING:",
     hasCodex
-      ? "- Use system.codex_exec heavily for theory research, internet search, and prototyping."
+      ? "- Use system.codex_exec for short research bursts; use system.codex_job for long-running background research."
       : "- system.codex_exec not available; rely on market/wallet/risk tools only.",
     hasCodex
       ? "- For research, prefer read-only sandbox; for prototyping tools, use workspace-write and keep changes minimal."
       : "- If missing research tools, skip speculative steps and act conservatively.",
+    hasCodexJob
+      ? "- When using system.codex_job, poll status periodically and incorporate results when completed."
+      : "- If no background job tool exists, keep research tasks short and synchronous.",
     "ASSUMPTION TESTING:",
     hasCodex
       ? "- Run short, non-interactive experiments with system.codex_exec; timebox (<=180s) and ensure clean exit."
