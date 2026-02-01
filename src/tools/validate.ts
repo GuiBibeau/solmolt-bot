@@ -160,6 +160,11 @@ const OrderbookSnapshotSchema = z.object({
   market: z.string().min(1),
 });
 
+const PerpsFundingRatesSchema = z.object({
+  venue: z.string().min(1),
+  market: z.string().min(1),
+});
+
 const SwitchboardPriceSchema = z.object({
   feedId: z.string().min(1),
 });
@@ -187,6 +192,7 @@ export const TOOL_VALIDATORS: Record<string, z.ZodTypeAny> = {
   "market.raydium_pool_stats": RaydiumPoolSchema,
   "market.orca_pool_stats": OrcaPoolSchema,
   "market.orderbook_snapshot": OrderbookSnapshotSchema,
+  "market.perps_funding_rates": PerpsFundingRatesSchema,
   "market.switchboard_price": SwitchboardPriceSchema,
   "market.liquidity_by_mint": LiquidityByMintSchema,
   "openclaw.invoke": OpenClawInvokeSchema,

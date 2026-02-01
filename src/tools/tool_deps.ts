@@ -54,6 +54,19 @@ export type OrcaWhirlpool = {
   lpFeeRate?: number | string;
 };
 
+export type DriftFundingRateEntry = {
+  fundingRate?: string | number;
+  fundingRateLong?: string | number;
+  oraclePriceTwap?: string | number;
+  ts?: string | number;
+  slot?: string | number;
+  marketName?: string;
+};
+
+export type DriftFundingRatesResponse = {
+  fundingRates?: DriftFundingRateEntry[];
+};
+
 export type KalshiMarket = {
   ticker?: string;
   id?: string;
@@ -147,6 +160,9 @@ export type ToolDeps = {
   >;
   fetchRaydiumPairs: () => Promise<RaydiumPair[]>;
   fetchOrcaWhirlpools: () => Promise<OrcaWhirlpool[]>;
+  fetchDriftFundingRates: (
+    marketName: string,
+  ) => Promise<DriftFundingRateEntry[]>;
   toNumber: (value: string | number | null | undefined) => number | null;
   toIsoTimestamp: (value: string | number | null | undefined) => string;
   fetchKalshiMarkets: (
@@ -190,6 +206,7 @@ export function createToolDeps(jupiter: JupiterClient): ToolDeps {
   const defaultSolNotional = 1_000_000_000n;
   const birdeyeBaseUrl = "https://public-api.birdeye.so";
   const kalshiBaseUrl = "https://api.elections.kalshi.com/trade-api/v2";
+  const driftBaseUrl = "https://data.api.drift.trade";
   const candleIntervals: Record<string, { type: string; seconds: number }> = {
     "1m": { type: "1m", seconds: 60 },
     "5m": { type: "5m", seconds: 300 },
@@ -210,6 +227,10 @@ export function createToolDeps(jupiter: JupiterClient): ToolDeps {
     ts: number;
     data: OrcaWhirlpool[];
   } | null = null;
+  const driftFundingCache = new Map<
+    string,
+    { ts: number; data: DriftFundingRateEntry[] }
+  >();
 
   const getDexLabels = async (): Promise<string[]> => {
     if (dexLabelCache) return dexLabelCache;
@@ -431,6 +452,30 @@ export function createToolDeps(jupiter: JupiterClient): ToolDeps {
       throw new Error("Orca whirlpools invalid payload");
     }
     orcaWhirlpoolsCache = { ts: now, data };
+    return data;
+  };
+
+  const fetchDriftFundingRates = async (
+    marketName: string,
+  ): Promise<DriftFundingRateEntry[]> => {
+    const now = Date.now();
+    const cacheKey = marketName.toUpperCase();
+    const cached = driftFundingCache.get(cacheKey);
+    if (cached && now - cached.ts < 30_000) {
+      return cached.data;
+    }
+    const url = new URL("/fundingRates", driftBaseUrl);
+    url.searchParams.set("marketName", cacheKey);
+    const response = await fetch(url.toString(), { method: "GET" });
+    if (!response.ok) {
+      throw new Error(`Drift funding rates failed: ${response.status}`);
+    }
+    const payload = (await response.json()) as DriftFundingRatesResponse;
+    const data = payload.fundingRates ?? [];
+    if (!Array.isArray(data)) {
+      throw new Error("Drift funding rates invalid payload");
+    }
+    driftFundingCache.set(cacheKey, { ts: now, data });
     return data;
   };
 
@@ -716,6 +761,7 @@ export function createToolDeps(jupiter: JupiterClient): ToolDeps {
     fetchCandles,
     fetchRaydiumPairs,
     fetchOrcaWhirlpools,
+    fetchDriftFundingRates,
     toNumber,
     toIsoTimestamp,
     fetchKalshiMarkets,

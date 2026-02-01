@@ -401,3 +401,26 @@ test("invalid market.orderbook_snapshot args are rejected before execution", asy
     }),
   ).rejects.toThrow(/validation/i);
 });
+
+test("invalid market.perps_funding_rates args are rejected before execution", async () => {
+  const registry = new ToolRegistry();
+  const jupiter = new JupiterClient(
+    stubConfig.jupiter.baseUrl,
+    stubConfig.jupiter.apiKey,
+  );
+  registerDefaultTools(registry, jupiter);
+
+  const ctx = {
+    config: stubConfig,
+    solana: stubSolana,
+    sessionJournal: new SessionJournal("test", ".tmp/sessions"),
+    tradeJournal: new TradeJournal(".tmp/trades"),
+  };
+
+  await expect(
+    registry.invoke("market.perps_funding_rates", ctx, {
+      venue: "",
+      market: "",
+    }),
+  ).rejects.toThrow(/validation/i);
+});

@@ -298,6 +298,24 @@ integrationTest("market.orderbook_snapshot (integration)", async () => {
   expect(result.ts).toBeTruthy();
 });
 
+integrationTest("market.perps_funding_rates (integration)", async () => {
+  if (!process.env.PERPS_FUNDING_MARKET) {
+    return;
+  }
+  const { registry, ctx } = setup();
+  const venue = process.env.PERPS_FUNDING_VENUE || "drift";
+  const market = process.env.PERPS_FUNDING_MARKET;
+
+  const result = (await registry.invoke("market.perps_funding_rates", ctx, {
+    venue,
+    market,
+  })) as { fundingRate: string; interval: string; ts: string };
+
+  expect(result.fundingRate).toBeTruthy();
+  expect(result.interval).toBeTruthy();
+  expect(result.ts).toBeTruthy();
+});
+
 integrationTest("market.switchboard_price (integration)", async () => {
   if (!process.env.SWITCHBOARD_FEED_ID) {
     return;
