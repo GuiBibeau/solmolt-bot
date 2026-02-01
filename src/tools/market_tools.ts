@@ -7,8 +7,10 @@ import {
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import type { ToolContext, ToolRegistry } from "./registry.js";
 import type {
+  KalshiMarketDetail,
   KalshiOrderbook,
   KalshiOrderbookLevel,
+  KalshiOrderbookResponse,
   SwitchboardResult,
   ToolDeps,
 } from "./tool_deps.js";
@@ -23,6 +25,7 @@ export function registerMarketTools(
     defaultSlippageBps,
     fetchCandles,
     fetchKalshiMarkets,
+    fetchKalshiMarket,
     fetchKalshiOrderbook,
     fetchRaydiumPairs,
     fetchOrcaWhirlpools,
@@ -45,6 +48,19 @@ export function registerMarketTools(
 
   const toStringOrEmpty = (value: number | null | undefined): string =>
     value === null || value === undefined ? "" : String(value);
+
+  const pickBestPrice = (
+    ...candidates: Array<number | null | undefined>
+  ): number | null => {
+    let sawZero = false;
+    for (const value of candidates) {
+      if (value === null || value === undefined) continue;
+      if (!Number.isFinite(value)) continue;
+      if (value > 0) return value;
+      if (value === 0) sawZero = true;
+    }
+    return sawZero ? 0 : null;
+  };
 
   const parseBigInt = (
     value: string | number | null | undefined,
@@ -403,16 +419,47 @@ export function registerMarketTools(
       if (!ticker) {
         throw new Error("market-id-required");
       }
-      const payload = await fetchKalshiOrderbook(ticker, 1);
-      const orderbook: KalshiOrderbook = payload.orderbook ?? payload;
-      const yesLevels: KalshiOrderbookLevel[] = orderbook.yes ?? [];
-      const noLevels: KalshiOrderbookLevel[] = orderbook.no ?? [];
-      const yesPrice = yesLevels[0]?.[0];
-      const noPrice = noLevels[0]?.[0];
-      const liquidity = (yesLevels[0]?.[1] ?? 0) + (noLevels[0]?.[1] ?? 0);
+      let market: KalshiMarketDetail | null = null;
+      try {
+        market = await fetchKalshiMarket(ticker);
+      } catch {
+        market = null;
+      }
+      let payload: KalshiOrderbookResponse | null = null;
+      try {
+        payload = await fetchKalshiOrderbook(ticker, 1);
+      } catch {
+        payload = null;
+      }
+      if (!market && !payload) {
+        throw new Error("kalshi-market-unavailable");
+      }
+      const orderbook: KalshiOrderbook | null = payload
+        ? (payload.orderbook ?? payload)
+        : null;
+      const yesLevels: KalshiOrderbookLevel[] = Array.isArray(orderbook?.yes)
+        ? orderbook?.yes
+        : [];
+      const noLevels: KalshiOrderbookLevel[] = Array.isArray(orderbook?.no)
+        ? orderbook?.no
+        : [];
+      const yesPrice = pickBestPrice(
+        toNumber(market?.yes_bid),
+        toNumber(market?.yes_ask),
+        yesLevels[0]?.[0],
+      );
+      const noPrice = pickBestPrice(
+        toNumber(market?.no_bid),
+        toNumber(market?.no_ask),
+        noLevels[0]?.[0],
+      );
+      const liquidityMarket = toNumber(market?.liquidity);
+      const liquidityBook = (yesLevels[0]?.[1] ?? 0) + (noLevels[0]?.[1] ?? 0);
+      const liquidity =
+        liquidityMarket !== null ? liquidityMarket : liquidityBook;
       return {
-        yesPrice: yesPrice !== undefined ? String(yesPrice) : "",
-        noPrice: noPrice !== undefined ? String(noPrice) : "",
+        yesPrice: toStringOrEmpty(yesPrice),
+        noPrice: toStringOrEmpty(noPrice),
         liquidity: String(liquidity),
         ts: new Date().toISOString(),
       };

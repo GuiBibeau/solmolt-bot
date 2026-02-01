@@ -87,14 +87,27 @@ export type KalshiMarketsResponse = {
 export type KalshiOrderbookLevel = [number, number];
 
 export type KalshiOrderbook = {
-  yes?: KalshiOrderbookLevel[];
-  no?: KalshiOrderbookLevel[];
+  yes?: KalshiOrderbookLevel[] | null;
+  no?: KalshiOrderbookLevel[] | null;
 };
 
 export type KalshiOrderbookResponse = {
   orderbook?: KalshiOrderbook;
-  yes?: KalshiOrderbookLevel[];
-  no?: KalshiOrderbookLevel[];
+  yes?: KalshiOrderbookLevel[] | null;
+  no?: KalshiOrderbookLevel[] | null;
+};
+
+export type KalshiMarketDetail = KalshiMarket & {
+  yes_bid?: number | string;
+  yes_ask?: number | string;
+  no_bid?: number | string;
+  no_ask?: number | string;
+  liquidity?: number | string;
+  volume?: number | string;
+};
+
+export type KalshiMarketResponse = {
+  market?: KalshiMarketDetail;
 };
 
 export type SwitchboardResult = {
@@ -168,6 +181,7 @@ export type ToolDeps = {
   fetchKalshiMarkets: (
     params: Record<string, string>,
   ) => Promise<KalshiMarketsResponse>;
+  fetchKalshiMarket: (ticker: string) => Promise<KalshiMarketDetail>;
   fetchKalshiOrderbook: (
     ticker: string,
     depth?: number,
@@ -512,11 +526,24 @@ export function createToolDeps(jupiter: JupiterClient): ToolDeps {
   const toIsoTimestamp = (
     value: string | number | null | undefined,
   ): string => {
-    if (typeof value !== "number" && typeof value !== "string") return "";
-    const numeric = Number(value);
-    if (!Number.isFinite(numeric)) return "";
-    const ms = numeric > 1_000_000_000_000 ? numeric : numeric * 1000;
-    return new Date(ms).toISOString();
+    if (value === null || value === undefined) return "";
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (!trimmed) return "";
+      const numeric = Number(trimmed);
+      if (Number.isFinite(numeric)) {
+        const ms = numeric > 1_000_000_000_000 ? numeric : numeric * 1000;
+        return new Date(ms).toISOString();
+      }
+      const parsed = Date.parse(trimmed);
+      return Number.isFinite(parsed) ? new Date(parsed).toISOString() : "";
+    }
+    if (typeof value === "number") {
+      if (!Number.isFinite(value)) return "";
+      const ms = value > 1_000_000_000_000 ? value : value * 1000;
+      return new Date(ms).toISOString();
+    }
+    return "";
   };
 
   const fetchKalshiMarkets = async (
@@ -535,6 +562,28 @@ export function createToolDeps(jupiter: JupiterClient): ToolDeps {
       throw new Error("Kalshi markets invalid payload");
     }
     return payload as KalshiMarketsResponse;
+  };
+
+  const fetchKalshiMarket = async (
+    ticker: string,
+  ): Promise<KalshiMarketDetail> => {
+    const url = new URL(
+      `markets/${encodeURIComponent(ticker)}`,
+      `${kalshiBaseUrl}/`,
+    );
+    const response = await fetch(url.toString(), { method: "GET" });
+    if (!response.ok) {
+      throw new Error(`Kalshi market failed: ${response.status}`);
+    }
+    const payload = await readJson<KalshiMarketResponse>(
+      response,
+      "Kalshi market",
+    );
+    const market = payload.market ?? payload;
+    if (!market || typeof market !== "object") {
+      throw new Error("Kalshi market invalid payload");
+    }
+    return market as KalshiMarketDetail;
   };
 
   const fetchKalshiOrderbook = async (
@@ -786,6 +835,7 @@ export function createToolDeps(jupiter: JupiterClient): ToolDeps {
     toNumber,
     toIsoTimestamp,
     fetchKalshiMarkets,
+    fetchKalshiMarket,
     fetchKalshiOrderbook,
     fetchSwitchboardFeed,
     computePriceSnapshot,
