@@ -87,7 +87,11 @@ export class SessionStore {
     if (!sessionKey) {
       throw new Error("Invalid session key.");
     }
-    if (sessionKey.includes("/") || sessionKey.includes("\\") || sessionKey.includes("\0")) {
+    if (
+      sessionKey.includes("/") ||
+      sessionKey.includes("\\") ||
+      sessionKey.includes("\0")
+    ) {
       throw new Error("Invalid session key.");
     }
     const baseDir = path.resolve(this.baseDir);
