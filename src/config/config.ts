@@ -89,6 +89,8 @@ const ConfigSchema = z.object({
   tools: z
     .object({
       skillsDir: z.string().default("skills"),
+      allow: z.array(z.string()).optional(),
+      deny: z.array(z.string()).optional(),
     })
     .default({}),
   openclaw: z
@@ -137,6 +139,15 @@ function envNumber(value?: string): number | undefined {
   if (!value) return undefined;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function envList(value?: string): string[] | undefined {
+  if (!value) return undefined;
+  const items = value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  return items.length > 0 ? items : undefined;
 }
 
 function deepMerge(
@@ -201,6 +212,8 @@ export function loadConfig(configPath?: string): RalphConfig {
     },
     tools: {
       skillsDir: process.env.SKILLS_DIR,
+      allow: envList(process.env.TOOLS_ALLOW),
+      deny: envList(process.env.TOOLS_DENY),
     },
   };
 

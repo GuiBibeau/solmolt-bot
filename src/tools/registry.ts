@@ -40,6 +40,14 @@ export type ToolDefinition<TInput = unknown, TOutput = unknown> = {
   execute: (ctx: ToolContext, input: TInput) => Promise<TOutput>;
 };
 
+function matchesToolPattern(pattern: string, name: string): boolean {
+  if (pattern === "*") return true;
+  if (!pattern.includes("*")) return pattern === name;
+  const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
+  const regex = new RegExp(`^${escaped.replace(/\*/g, ".*")}$`);
+  return regex.test(name);
+}
+
 export class ToolRegistry {
   private readonly tools = new Map<string, ToolDefinition<unknown, unknown>>();
 
@@ -104,6 +112,17 @@ export class ToolRegistry {
 
   isEligible(tool: ToolDefinition, config: RalphConfig): boolean {
     const requirements = tool.requires;
+    const allowList = config.tools?.allow;
+    const denyList = config.tools?.deny;
+    if (denyList?.some((pattern) => matchesToolPattern(pattern, tool.name))) {
+      return false;
+    }
+    if (allowList && allowList.length > 0) {
+      const allowed = allowList.some((pattern) =>
+        matchesToolPattern(pattern, tool.name),
+      );
+      if (!allowed) return false;
+    }
     if (!requirements) return true;
     if (requirements.env) {
       for (const key of requirements.env) {
