@@ -65,7 +65,7 @@ export function buildAutonomousPrompt(input: {
     "STRATEGY SELECTION PROTOCOL:",
     "1) Detect regime: trend vs mean-reversion vs high-vol; use candles, funding, and price impact clues.",
     "2) Pick signals: momentum/mean-revert/arb; prefer simple, testable hypotheses.",
-    "3) Size positions: risk budgeted size; cap by policy.maxTradeAmountLamports and dailySpendCapLamports.",
+    "3) Size positions: risk budgeted size; cap by policy.maxTradeAmountLamports and dailySpendCapLamports. Note: maxTradeAmountLamports=0 means no cap.",
     "4) Select route: minimize price impact and slippage; avoid thin liquidity.",
     "5) Skip trade if uncertainty is high or policy/risk checks fail.",
     "PAIR SELECTION:",
