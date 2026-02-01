@@ -5,4 +5,5 @@ ralph.config.yaml
 sessions/
 runs/
 trades/
+tasks/
 .tmp/
