@@ -39,6 +39,7 @@ const RuntimeSchema = z
   .object({
     sessionsDir: z.string().default("sessions"),
     runsDir: z.string().default("runs"),
+    tasksDir: z.string().default("tasks"),
     lanes: z
       .record(z.number().int().positive())
       .default({ main: 1, subagent: 4, autopilot: 1 }),

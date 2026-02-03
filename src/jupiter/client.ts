@@ -112,7 +112,15 @@ export class JupiterClient {
     });
 
     if (!response.ok) {
-      throw new Error(`Jupiter swap failed: ${response.status}`);
+      const body = await response.text();
+      const requestId =
+        response.headers.get("x-request-id") ??
+        response.headers.get("x-request-id".toLowerCase()) ??
+        "";
+      const idSuffix = requestId ? ` requestId=${requestId}` : "";
+      throw new Error(
+        `Jupiter swap failed: ${response.status}${idSuffix} ${body}`,
+      );
     }
 
     const data = JupiterSwapResponseSchema.parse(await response.json());

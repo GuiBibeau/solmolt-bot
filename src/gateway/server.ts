@@ -99,6 +99,9 @@ export class GatewayServer {
     });
 
     if (this.state.autopilotEnabled) {
+      info("autopilot enabled at startup", {
+        intervalMs: this.state.autopilotIntervalMs,
+      });
       this.startAutopilot();
     }
   }
@@ -128,12 +131,16 @@ export class GatewayServer {
         }
         case "autopilot.start": {
           this.state.autopilotEnabled = true;
+          info("autopilot start requested", {
+            intervalMs: this.state.autopilotIntervalMs,
+          });
           this.startAutopilot();
           response = { ok: true };
           break;
         }
         case "autopilot.stop": {
           this.state.autopilotEnabled = false;
+          info("autopilot stop requested");
           this.stopAutopilot();
           response = { ok: true };
           break;
@@ -181,9 +188,13 @@ export class GatewayServer {
 
   private startAutopilot(): void {
     if (this.autopilotTimer) return;
+    info("autopilot loop started", {
+      intervalMs: this.state.autopilotIntervalMs,
+    });
     this.autopilotTimer = setInterval(() => {
       if (this.ctx.runtime) {
         try {
+          info("autopilot tick submitted", { reason: "timer" });
           this.ctx.runtime.submitAutopilotTick("timer");
         } catch (err) {
           warn("autopilot tick failed", { err: String(err) });
@@ -191,11 +202,13 @@ export class GatewayServer {
         return;
       }
       if (this.ctx.agent) {
+        info("autopilot tick submitted", { reason: "timer" });
         this.ctx.agent
           .tick("timer")
           .catch((err) => warn("autopilot tick failed", { err: String(err) }));
         return;
       }
+      info("autopilot tick submitted", { reason: "timer" });
       this.registry
         .invoke("system.autopilot_tick", this.ctx, { reason: "timer" })
         .catch((err) => warn("autopilot tick failed", { err: String(err) }));
@@ -206,6 +219,7 @@ export class GatewayServer {
     if (!this.autopilotTimer) return;
     clearInterval(this.autopilotTimer);
     this.autopilotTimer = undefined;
+    info("autopilot loop stopped");
   }
 }
 

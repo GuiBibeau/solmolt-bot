@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import type { RalphConfig } from "../config/config.js";
 import { randomId } from "../util/id.js";
+import { sleep } from "../util/time.js";
 import { OpenAiChatResponseSchema } from "./schema.js";
 import type {
   LlmClient,
@@ -59,20 +60,7 @@ export class OpenAiChatClient implements LlmClient {
       }
     }
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${this.config.apiKey}`,
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      const body = await response.text();
-      throw new Error(`LLM request failed: ${response.status} ${body}`);
-    }
-
+    const response = await requestWithRetry(url, payload, this.config.apiKey);
     const data = OpenAiChatResponseSchema.parse(await response.json());
     const choice = data.choices[0]?.message;
     if (!choice) {
@@ -174,6 +162,141 @@ type ToolNameMap = {
   tools: ToolSchema[];
   toOriginal: Map<string, string>;
 };
+
+type RetryConfig = {
+  maxRetries: number;
+  baseDelayMs: number;
+  maxDelayMs: number;
+};
+
+type SemaphoreRelease = () => void;
+
+class Semaphore {
+  private active = 0;
+  private readonly queue: Array<(release: SemaphoreRelease) => void> = [];
+
+  constructor(private readonly capacity: number) {}
+
+  async acquire(): Promise<SemaphoreRelease> {
+    if (this.active < this.capacity) {
+      this.active += 1;
+      return () => this.release();
+    }
+    return new Promise((resolve) => {
+      this.queue.push(resolve);
+    });
+  }
+
+  private release(): void {
+    this.active = Math.max(0, this.active - 1);
+    const next = this.queue.shift();
+    if (next) {
+      this.active += 1;
+      next(() => this.release());
+    }
+  }
+}
+
+let requestSemaphore: Semaphore | null = null;
+
+function getSemaphore(): Semaphore {
+  if (requestSemaphore) return requestSemaphore;
+  const maxConcurrency = parseEnvInt(process.env.LLM_MAX_CONCURRENCY, 1);
+  requestSemaphore = new Semaphore(Math.max(1, maxConcurrency));
+  return requestSemaphore;
+}
+
+function getRetryConfig(): RetryConfig {
+  return {
+    maxRetries: parseEnvInt(process.env.LLM_MAX_RETRIES, 3),
+    baseDelayMs: parseEnvInt(process.env.LLM_RETRY_BASE_MS, 500),
+    maxDelayMs: parseEnvInt(process.env.LLM_RETRY_MAX_MS, 5_000),
+  };
+}
+
+function parseEnvInt(value: string | undefined, fallback: number): number {
+  if (!value) return fallback;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function computeRetryDelay(
+  attempt: number,
+  cfg: RetryConfig,
+  retryAfter: string | null,
+): number {
+  if (retryAfter) {
+    const seconds = Number.parseInt(retryAfter, 10);
+    if (Number.isFinite(seconds) && seconds > 0) {
+      return Math.min(cfg.maxDelayMs, seconds * 1000);
+    }
+    const parsed = Date.parse(retryAfter);
+    if (!Number.isNaN(parsed)) {
+      const delta = parsed - Date.now();
+      if (delta > 0) {
+        return Math.min(cfg.maxDelayMs, delta);
+      }
+    }
+  }
+  const exp = Math.min(cfg.maxDelayMs, cfg.baseDelayMs * 2 ** attempt);
+  const jitter = Math.floor(Math.random() * Math.min(250, exp));
+  return Math.min(cfg.maxDelayMs, exp + jitter);
+}
+
+async function requestWithRetry(
+  url: string,
+  payload: Record<string, unknown>,
+  apiKey: string,
+): Promise<Response> {
+  const cfg = getRetryConfig();
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt <= cfg.maxRetries; attempt += 1) {
+    const release = await getSemaphore().acquire();
+    let response: Response | null = null;
+    try {
+      response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(payload),
+      });
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+    } finally {
+      release();
+    }
+
+    if (response?.ok) {
+      return response;
+    }
+
+    if (response) {
+      const body = await response.text();
+      if (shouldRetry(response.status) && attempt < cfg.maxRetries) {
+        await sleep(
+          computeRetryDelay(attempt, cfg, response.headers.get("retry-after")),
+        );
+        continue;
+      }
+      throw new Error(`LLM request failed: ${response.status} ${body}`);
+    }
+
+    if (attempt < cfg.maxRetries) {
+      await sleep(computeRetryDelay(attempt, cfg, null));
+    }
+  }
+
+  if (lastError) {
+    throw lastError;
+  }
+  throw new Error("LLM request failed: unknown error");
+}
+
+function shouldRetry(status: number): boolean {
+  return status === 408 || status === 429 || status >= 500;
+}
 
 function buildToolNameMap(tools: ToolSchema[]): ToolNameMap {
   const used = new Set<string>();

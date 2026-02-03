@@ -54,30 +54,31 @@ export function registerTradeTools(
       },
     ) => {
       enforcePolicy(ctx.config.policy, input.quoteResponse);
-      const swap = await jupiter.swap({
-        quoteResponse: input.quoteResponse,
-        userPublicKey: ctx.solana.getPublicKey(),
-      });
+      const { swap, quoteResponse: usedQuote } = await swapWithRetry(
+        ctx,
+        input.quoteResponse,
+        jupiter,
+        (request) => jupiter.swap(request),
+      );
       const rawTx = Buffer.from(swap.swapTransaction, "base64");
       const signed = await ctx.solana.signRawTransaction(rawTx);
       const result = await ctx.solana.sendAndConfirmRawTx(signed, {
         commitment: input.txOptions?.commitment ?? "confirmed",
       });
       const tokenInfoMap = await getTokenInfoMap(
-        [input.quoteResponse.inputMint, input.quoteResponse.outputMint].filter(
+        [usedQuote.inputMint, usedQuote.outputMint].filter(
           (mint) => mint !== solMint,
         ),
       );
-      const inputInfo = tokenInfoMap.get(input.quoteResponse.inputMint) ?? null;
-      const outputInfo =
-        tokenInfoMap.get(input.quoteResponse.outputMint) ?? null;
+      const inputInfo = tokenInfoMap.get(usedQuote.inputMint) ?? null;
+      const outputInfo = tokenInfoMap.get(usedQuote.outputMint) ?? null;
 
       const inputSnapshot = await computePriceSnapshot(
-        input.quoteResponse.inputMint,
+        usedQuote.inputMint,
         inputInfo,
       );
       const outputSnapshot = await computePriceSnapshot(
-        input.quoteResponse.outputMint,
+        usedQuote.outputMint,
         outputInfo,
       );
 
@@ -90,24 +91,20 @@ export function registerTradeTools(
       let outputValueSol: string | null = null;
 
       try {
-        const inputAmount = BigInt(input.quoteResponse.inAmount ?? "0");
-        const outputAmount = BigInt(input.quoteResponse.outAmount ?? "0");
+        const inputAmount = BigInt(usedQuote.inAmount ?? "0");
+        const outputAmount = BigInt(usedQuote.outAmount ?? "0");
         const inputDecimals =
-          input.quoteResponse.inputMint === solMint
-            ? solDecimals
-            : inputInfo?.decimals;
+          usedQuote.inputMint === solMint ? solDecimals : inputInfo?.decimals;
         const outputDecimals =
-          input.quoteResponse.outputMint === solMint
-            ? solDecimals
-            : outputInfo?.decimals;
+          usedQuote.outputMint === solMint ? solDecimals : outputInfo?.decimals;
         const inputPriceScaled =
-          input.quoteResponse.inputMint === solMint
+          usedQuote.inputMint === solMint
             ? 10n ** BigInt(priceDecimals)
             : inputPrice
               ? parseScaled(inputPrice, priceDecimals)
               : null;
         const outputPriceScaled =
-          input.quoteResponse.outputMint === solMint
+          usedQuote.outputMint === solMint
             ? 10n ** BigInt(priceDecimals)
             : outputPrice
               ? parseScaled(outputPrice, priceDecimals)
@@ -133,10 +130,10 @@ export function registerTradeTools(
         signature: result.signature,
         status: result.err ? "error" : "confirmed",
         lastValidBlockHeight: swap.lastValidBlockHeight,
-        inputMint: input.quoteResponse.inputMint,
-        outputMint: input.quoteResponse.outputMint,
-        inAmount: input.quoteResponse.inAmount,
-        outAmount: input.quoteResponse.outAmount,
+        inputMint: usedQuote.inputMint,
+        outputMint: usedQuote.outputMint,
+        inAmount: usedQuote.inAmount,
+        outAmount: usedQuote.outAmount,
         inValueSol: inputValueSol,
         outValueSol: outputValueSol,
       });
@@ -147,6 +144,78 @@ export function registerTradeTools(
       };
     },
   });
+}
+
+async function swapWithRetry(
+  ctx: ToolContext,
+  quoteResponse: JupiterQuoteResponse,
+  jupiter: ToolDeps["jupiter"],
+  swap: (input: {
+    quoteResponse: JupiterQuoteResponse;
+    userPublicKey: string;
+  }) => Promise<{
+    swapTransaction: string;
+    lastValidBlockHeight: number;
+  }>,
+): Promise<{
+  swap: { swapTransaction: string; lastValidBlockHeight: number };
+  quoteResponse: JupiterQuoteResponse;
+}> {
+  try {
+    return {
+      swap: await swap({
+        quoteResponse,
+        userPublicKey: ctx.solana.getPublicKey(),
+      }),
+      quoteResponse,
+    };
+  } catch (err) {
+    if (!isSwap422(err)) throw err;
+    const refreshed = await reQuote(jupiter, quoteResponse);
+    enforcePolicy(ctx.config.policy, refreshed);
+    return {
+      swap: await swap({
+        quoteResponse: refreshed,
+        userPublicKey: ctx.solana.getPublicKey(),
+      }),
+      quoteResponse: refreshed,
+    };
+  }
+}
+
+function isSwap422(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return message.includes(" 422") || message.includes("status 422");
+}
+
+async function reQuote(
+  jupiter: ToolDeps["jupiter"],
+  quoteResponse: JupiterQuoteResponse,
+): Promise<JupiterQuoteResponse> {
+  const swapModeRaw = quoteResponse.swapMode;
+  const swapMode =
+    swapModeRaw === "ExactIn" || swapModeRaw === "ExactOut"
+      ? swapModeRaw
+      : "ExactIn";
+  const amount =
+    swapMode === "ExactOut"
+      ? (quoteResponse.outAmount ?? quoteResponse.inAmount)
+      : (quoteResponse.inAmount ?? quoteResponse.outAmount);
+  if (!amount) {
+    throw new Error("quote-refresh-failed: missing amount");
+  }
+  const slippageBps =
+    typeof quoteResponse.slippageBps === "number"
+      ? quoteResponse.slippageBps
+      : Number(quoteResponse.slippageBps ?? 0);
+  const refreshed = await jupiter.quote({
+    inputMint: quoteResponse.inputMint,
+    outputMint: quoteResponse.outputMint,
+    amount,
+    slippageBps,
+    swapMode,
+  });
+  return refreshed.quoteResponse;
 }
 
 function enforcePolicy(
