@@ -1,6 +1,9 @@
 node_modules/
 dist/
 .env
+.next/
+.wrangler/
+package-lock.json
 sessions/
 runs/
 trades/

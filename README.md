@@ -27,6 +27,9 @@ wrangler secret put PRIVY_WALLET_ID
 wrangler dev
 ```
 
+Replace the `REPLACE_WITH_*` placeholders in `apps/worker/wrangler.toml` with
+the IDs output by Wrangler (KV namespace IDs and D1 database IDs).
+
 ## Control the loop (local or deployed)
 
 ```bash

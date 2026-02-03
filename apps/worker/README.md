@@ -19,6 +19,9 @@ wrangler secret put PRIVY_WALLET_ID
 wrangler dev
 ```
 
+Replace the `REPLACE_WITH_*` placeholders in `wrangler.toml` with the IDs
+output by Wrangler (KV namespace IDs and D1 database IDs).
+
 ## Notes
 - Cron runs every minute by default. The loop only runs if enabled in KV.
 - The trading loop implementation is stubbed in `src/loop.ts` and is the entry

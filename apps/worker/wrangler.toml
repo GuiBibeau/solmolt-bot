@@ -8,17 +8,15 @@ ALLOWED_ORIGINS = "*"
 
 [[kv_namespaces]]
 binding = "CONFIG_KV"
-id = ""
+id = "REPLACE_WITH_KV_ID"
+preview_id = "REPLACE_WITH_KV_PREVIEW_ID"
 
 [[d1_databases]]
 binding = "WAITLIST_DB"
 database_name = "ralph_waitlist"
-database_id = ""
+database_id = "REPLACE_WITH_D1_ID"
+preview_database_id = "REPLACE_WITH_D1_PREVIEW_ID"
 migrations_dir = "migrations"
-
-[[r2_buckets]]
-binding = "LOGS_BUCKET"
-bucket_name = "ralph-logs"
 
 [[r2_buckets]]
 binding = "LOGS_BUCKET"
