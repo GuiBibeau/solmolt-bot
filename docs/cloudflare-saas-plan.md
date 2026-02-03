@@ -25,6 +25,7 @@ Integrate via `@solana/keychain-privy`.
 - Cloudflare **cron** triggers every minute.
 - `apps/worker/src/loop.ts` is the entry point for porting the bot loop.
 - Config controlled via `/api/loop/start|stop` and `/api/config`.
+- `ralph.config.yaml` is deprecated; configuration lives in KV.
 
 ## Multi-tenant SaaS
 

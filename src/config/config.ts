@@ -170,6 +170,11 @@ function deepMerge(
 }
 
 export function loadConfig(configPath?: string): RalphConfig {
+  if (process.env.RALPH_CONFIG_MODE !== "legacy") {
+    throw new Error(
+      "Legacy config disabled. Use Cloudflare KV configuration via apps/worker.",
+    );
+  }
   const resolvedPath = configPath
     ? path.resolve(configPath)
     : path.resolve(process.env.RALPH_CONFIG || "ralph.config.yaml");

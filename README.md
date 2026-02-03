@@ -6,44 +6,40 @@ Active development: expect rapid iteration, feature growth, and occasional break
 
 ## Requirements
 
-- **Bun** (recommended runner/bundler)
-- Node 18+ if you want to run the built output
+- **Wrangler CLI** (Cloudflare Workers)
+- Node 18+ (for local tooling)
 
-## Quick start (DX‑optimized)
+## Quick start (Cloudflare worker, local)
 
 ```bash
-# 1) install deps
-bun install
+cd apps/worker
+npm install
 
-# 2) create your config
-cp ralph.config.example.yaml ralph.config.yaml
+wrangler d1 create ralph_waitlist
+wrangler kv:namespace create CONFIG_KV
+wrangler r2 bucket create ralph-logs
+wrangler d1 migrations apply ralph_waitlist
+wrangler secret put ADMIN_TOKEN
+wrangler secret put PRIVY_APP_ID
+wrangler secret put PRIVY_APP_SECRET
+wrangler secret put PRIVY_WALLET_ID
 
-# 3) edit ralph.config.yaml
-# - set wallet.privateKey (or keyfilePath)
-# - set jupiter.apiKey
-# - set llm.baseUrl / llm.apiKey / llm.model
-# - set gateway.authToken
-
-# 4) start the gateway
-bun run gateway
-
-# 5) in another terminal, check status
-bun run status
+wrangler dev
 ```
 
-## Common commands
+## Control the loop (local or deployed)
 
 ```bash
-bun run gateway                  # start gateway (WS server)
-bun run gateway:stop             # stop gateway via WS
-bun run gateway:restart          # restart gateway (requests shutdown)
-bun run status                   # check gateway status
-bun run autopilot:start          # enable autopilot tick loop
-bun run autopilot:stop           # disable autopilot tick loop
-bun run tool wallet.get_balances # invoke a tool
-bun run agent:message -m "focus on SOL/USDC" -t  # send a message + trigger tick
-bun run doctor                   # config/RPC health checks
-bun run update                   # git pull + bun install
+curl -X POST http://127.0.0.1:8787/api/loop/start \\
+  -H \"Authorization: Bearer $ADMIN_TOKEN\"
+
+curl -X POST http://127.0.0.1:8787/api/loop/stop \\
+  -H \"Authorization: Bearer $ADMIN_TOKEN\"
+
+curl -X POST http://127.0.0.1:8787/api/config \\
+  -H \"Authorization: Bearer $ADMIN_TOKEN\" \\
+  -H \"Content-Type: application/json\" \\
+  -d '{\"policy\":{\"maxSlippageBps\":50}}'
 ```
 
 ## Paths & entrypoints
@@ -54,43 +50,22 @@ bun run update                   # git pull + bun install
 - Tools list: `src/tools/tools.ts`
 - Skills folder (auto‑loaded): `skills/`
 - Web3 adapter: `src/solana/web3_adapter.ts`
-- Config file (default): `ralph.config.yaml`
 - Landing page (Next.js): `apps/portal`
 - Cloudflare edge worker: `apps/worker`
 
-You can override the config path with:
+Legacy CLI/gateway config is deprecated and not supported for the SaaS path.
+
+## Config notes (Worker)
+
+- All runtime config is stored in **KV** and controlled via `/api/config`.
+- Secrets (Privy, admin token) are managed via Wrangler.
+
+## Portal dev
 
 ```bash
-RALPH_CONFIG=/path/to/ralph.config.yaml bun run gateway
-```
-
-## Config notes
-
-- `llm.provider` is **openai_chat** for now (OpenAI‑compatible chat; we’re using DeepInfra).
-- `jupiter.apiKey` is required for `https://api.jup.ag`.
-- `wallet.privateKey` accepts base58, `base64:...`, `hex:...`, or JSON array string.
-- `tools.skillsDir` points to the folder for auto‑loaded skill modules.
-
-### Autopilot plan (optional)
-
-The agent is LLM‑driven and will decide which tools to call. You can optionally give it a fixed plan as a hint:
-
-```yaml
-autopilot:
-  enabled: true
-  intervalMs: 15000
-  plan:
-    inputMint: "So11111111111111111111111111111111111111112" # SOL
-    outputMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" # USDC
-    amount: "1000000" # 0.001 SOL in lamports
-    slippageBps: 50
-```
-
-## Build
-
-```bash
-bun run build
-bun run start
+cd apps/portal
+bun install
+bun dev
 ```
 
 ## Monorepo layout
@@ -159,9 +134,9 @@ bun test
 
 ## Security reminders
 
-- **Do not commit** `ralph.config.yaml`. It’s in `.gitignore`.
-- Keep the gateway bound to `127.0.0.1` and access it via SSH tunnel.
-- Keep minimal funds in the hot wallet.
+- Use Privy or approved custody for production keys.
+- Lock down admin tokens.
+- Keep minimal funds in hot wallets.
 
 ---
 
