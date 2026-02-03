@@ -1,0 +1,293 @@
+:root {
+  --ink: #0b0b0b;
+  --paper: #fdfdfd;
+  --muted: #6d6d6d;
+  --accent: #ff7ac8;
+  --accent-soft: rgba(255, 122, 200, 0.2);
+  --grid: rgba(11, 11, 11, 0.06);
+  --border: 2px solid var(--ink);
+  --radius: 0px;
+  --shadow: 8px 8px 0 var(--ink);
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  color: var(--ink);
+  background: var(--paper);
+  font-family: var(--font-mono);
+  letter-spacing: -0.01em;
+  line-height: 1.4;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at 12% 10%, var(--accent-soft), transparent 38%),
+    radial-gradient(circle at 92% 22%, rgba(11, 11, 11, 0.06), transparent 30%),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0,
+      transparent 28px,
+      var(--grid) 28px,
+      var(--grid) 29px
+    );
+  pointer-events: none;
+  z-index: -1;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+}
+
+.container {
+  width: min(1120px, 92vw);
+  margin: 0 auto;
+}
+
+.kicker {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.25em;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+}
+
+h1 {
+  font-size: clamp(2.6rem, 5vw, 4.8rem);
+  line-height: 1.05;
+}
+
+h2 {
+  font-size: clamp(1.6rem, 3vw, 2.6rem);
+  line-height: 1.1;
+}
+
+p {
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--muted);
+}
+
+.section {
+  padding: clamp(3rem, 6vw, 6rem) 0;
+  border-top: var(--border);
+}
+
+.section:first-of-type {
+  border-top: none;
+}
+
+.hero {
+  padding-top: clamp(3.5rem, 10vw, 7rem);
+  padding-bottom: clamp(3rem, 8vw, 6rem);
+}
+
+.hero-grid {
+  display: grid;
+  gap: 2.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  align-items: end;
+}
+
+.hero-card {
+  border: var(--border);
+  padding: 2rem;
+  box-shadow: var(--shadow);
+  background: white;
+}
+
+.hero-card h3 {
+  font-size: 1.2rem;
+  margin-bottom: 0.75rem;
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.9rem 1.6rem;
+  border: var(--border);
+  border-radius: var(--radius);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.button.primary {
+  background: var(--accent);
+  color: var(--ink);
+  box-shadow: 6px 6px 0 var(--ink);
+}
+
+.button.secondary {
+  background: white;
+}
+
+.button:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 10px 10px 0 var(--ink);
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1.5rem;
+}
+
+.badge {
+  border: var(--border);
+  padding: 0.4rem 0.7rem;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.15em;
+  background: white;
+}
+
+.grid-3 {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.card {
+  border: var(--border);
+  padding: 1.5rem;
+  background: white;
+}
+
+.card .label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  margin-bottom: 0.5rem;
+}
+
+.stat-row {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.stat {
+  border: var(--border);
+  padding: 1.2rem;
+  background: white;
+}
+
+.stat strong {
+  font-size: 1.6rem;
+  display: block;
+}
+
+.timeline {
+  display: grid;
+  gap: 1.2rem;
+}
+
+.timeline-item {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+}
+
+.timeline-dot {
+  width: 18px;
+  height: 18px;
+  border: var(--border);
+  background: var(--accent);
+}
+
+.callout {
+  border: var(--border);
+  padding: 2rem;
+  background: white;
+  display: grid;
+  gap: 1.2rem;
+}
+
+.footer {
+  padding: 2rem 0 3rem;
+  border-top: var(--border);
+  font-size: 0.85rem;
+}
+
+.fade-up {
+  animation: rise 0.7s ease both;
+}
+
+.delay-1 {
+  animation-delay: 0.1s;
+}
+
+.delay-2 {
+  animation-delay: 0.2s;
+}
+
+.delay-3 {
+  animation-delay: 0.3s;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-up {
+    animation: none;
+  }
+}
