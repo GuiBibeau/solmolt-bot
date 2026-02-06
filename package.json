@@ -26,7 +26,13 @@
     "test:integration": "bun test tests/integration",
     "typecheck": "bunx tsc --noEmit",
     "lint": "biome check .",
-    "lint:fix": "biome check . --write"
+    "lint:fix": "biome check . --write",
+    "edge:dev": "cd apps/worker && npm run dev:local",
+    "edge:db:migrate:local": "cd apps/worker && npm run db:migrate:local",
+    "edge:loop:enable:local": "cd apps/worker && npm run loop:enable:local",
+    "edge:loop:disable:local": "cd apps/worker && npm run loop:disable:local",
+    "edge:loop:status:local": "cd apps/worker && npm run loop:status:local",
+    "edge:loop:tick:local": "cd apps/worker && npm run loop:tick:local"
   },
   "dependencies": {
     "@ellipsis-labs/phoenix-sdk": "^2.0.3",

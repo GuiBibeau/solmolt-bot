@@ -22,6 +22,35 @@ wrangler dev
 Replace the `REPLACE_WITH_*` placeholders in `wrangler.toml` with the IDs
 output by Wrangler (KV namespace IDs and D1 database IDs).
 
+## Local Quickstart (Fast Loop Testing)
+
+This uses `wrangler dev --local` with a persisted local state directory so you
+can iterate on the loop quickly without touching real Cloudflare resources.
+
+```bash
+cd apps/worker
+npm install
+
+# Create the local D1 DB and apply migrations into the persisted state dir.
+npm run db:migrate:local
+
+# Enable the loop in local KV (cron + /__scheduled will no-op if disabled).
+npm run loop:enable:local
+
+# Start the local dev server (includes --test-scheduled).
+npm run dev:local
+```
+
+In another terminal you can force a scheduled tick:
+
+```bash
+cd apps/worker
+npm run loop:tick:local
+```
+
+Or open `http://127.0.0.1:8787/__scheduled` in a browser to trigger the
+scheduled event handler.
+
 ## Notes
 - Cron runs every minute by default. The loop only runs if enabled in KV.
 - The trading loop implementation is stubbed in `src/loop.ts` and is the entry

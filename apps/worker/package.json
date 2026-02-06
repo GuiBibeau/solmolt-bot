@@ -4,6 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "wrangler dev",
+    "dev:local": "wrangler dev --local --persist-to .wrangler/state --test-scheduled --port 8787",
+    "db:migrate:local": "wrangler d1 migrations apply WAITLIST_DB --local --persist-to .wrangler/state",
+    "loop:enable:local": "wrangler kv key put loop:config '{\"enabled\":true}' --binding CONFIG_KV --preview false --local --persist-to .wrangler/state",
+    "loop:disable:local": "wrangler kv key put loop:config '{\"enabled\":false}' --binding CONFIG_KV --preview false --local --persist-to .wrangler/state",
+    "loop:status:local": "curl -sS http://127.0.0.1:8787/api/loop/status | cat",
+    "loop:tick:local": "curl -sS http://127.0.0.1:8787/__scheduled | cat",
     "deploy": "wrangler deploy"
   },
   "dependencies": {
