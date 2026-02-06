@@ -1,0 +1,53 @@
+name: Deploy (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Which environment to deploy"
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+
+concurrency:
+  group: deploy-manual-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install worker deps
+        working-directory: apps/worker
+        run: npm install
+
+      - name: Apply D1 migrations
+        working-directory: apps/worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ "${{ inputs.environment }}" = "staging" ]; then
+            npx wrangler d1 migrations apply ralph_waitlist_staging --remote --env staging
+          elif [ "${{ inputs.environment }}" = "production" ]; then
+            npx wrangler d1 migrations apply ralph_waitlist --remote --env production
+          else
+            echo "Unknown environment: ${{ inputs.environment }}"
+            exit 1
+          fi
+
+      - name: Deploy worker
+        working-directory: apps/worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx wrangler deploy --env ${{ inputs.environment }}
+

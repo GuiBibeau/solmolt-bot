@@ -1,6 +1,7 @@
-name = "ralph-edge"
+name = "ralph-edge-dev"
 main = "src/index.ts"
 compatibility_date = "2026-02-03"
+account_id = "4e3939d5df701303b59ffbe4472184de"
 
 [vars]
 LOOP_ENABLED_DEFAULT = "false"
@@ -8,19 +9,71 @@ ALLOWED_ORIGINS = "*"
 
 [[kv_namespaces]]
 binding = "CONFIG_KV"
-id = "REPLACE_WITH_KV_ID"
-preview_id = "REPLACE_WITH_KV_PREVIEW_ID"
+id = "516c7df512df4b8d86b8784c0001da59"
+preview_id = "485beadbf21442dea022939bb1a6894e"
 
 [[d1_databases]]
 binding = "WAITLIST_DB"
-database_name = "ralph_waitlist"
-database_id = "REPLACE_WITH_D1_ID"
-preview_database_id = "REPLACE_WITH_D1_PREVIEW_ID"
+database_name = "ralph_waitlist_dev"
+database_id = "47ccd126-2dfe-47b3-a643-ee2999c435cc"
+preview_database_id = "47ccd126-2dfe-47b3-a643-ee2999c435cc"
 migrations_dir = "migrations"
 
 [[r2_buckets]]
 binding = "LOGS_BUCKET"
-bucket_name = "ralph-logs"
+bucket_name = "ralph-logs-dev"
 
 [triggers]
+crons = ["*/1 * * * *"]
+
+[env.staging]
+name = "ralph-edge-staging"
+
+[env.staging.vars]
+LOOP_ENABLED_DEFAULT = "false"
+ALLOWED_ORIGINS = "*"
+
+[[env.staging.kv_namespaces]]
+binding = "CONFIG_KV"
+id = "24b7fb70e0d6490fb6405c158f397160"
+preview_id = "f06ed95e8c6c4413aeea2dae4b208250"
+
+[[env.staging.d1_databases]]
+binding = "WAITLIST_DB"
+database_name = "ralph_waitlist_staging"
+database_id = "1be9b953-6f4f-4d9b-9941-a42fdc574159"
+preview_database_id = "1be9b953-6f4f-4d9b-9941-a42fdc574159"
+migrations_dir = "migrations"
+
+[[env.staging.r2_buckets]]
+binding = "LOGS_BUCKET"
+bucket_name = "ralph-logs-staging"
+
+[env.staging.triggers]
+crons = ["*/1 * * * *"]
+
+[env.production]
+name = "ralph-edge"
+
+[env.production.vars]
+LOOP_ENABLED_DEFAULT = "false"
+ALLOWED_ORIGINS = "*"
+
+[[env.production.kv_namespaces]]
+binding = "CONFIG_KV"
+id = "3b9a43b162814678a999a6c2540f800d"
+preview_id = "5fc12fba238f4f289ec4cd0aea7c2f47"
+
+[[env.production.d1_databases]]
+binding = "WAITLIST_DB"
+database_name = "ralph_waitlist"
+database_id = "5af86222-a9ca-4227-bf25-4084cbeaeeca"
+preview_database_id = "5af86222-a9ca-4227-bf25-4084cbeaeeca"
+migrations_dir = "migrations"
+
+[[env.production.r2_buckets]]
+binding = "LOGS_BUCKET"
+bucket_name = "ralph-logs"
+
+[env.production.triggers]
 crons = ["*/1 * * * *"]

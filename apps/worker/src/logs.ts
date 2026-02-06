@@ -1,6 +1,10 @@
 import type { Env } from "./types";
 
 export async function appendLog(env: Env, key: string, line: string) {
+  if (!env.LOGS_BUCKET) {
+    // R2 not configured/enabled yet; still allow the Worker to run.
+    return;
+  }
   const existing = await env.LOGS_BUCKET.get(key);
   const prefix = existing ? await existing.text() : "";
   const body = prefix ? `${prefix}\n${line}` : line;
