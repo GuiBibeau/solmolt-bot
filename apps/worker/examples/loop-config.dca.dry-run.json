@@ -1,0 +1,17 @@
+{
+  "enabled": true,
+  "policy": {
+    "dryRun": true,
+    "slippageBps": 50,
+    "maxPriceImpactPct": 0.05,
+    "maxTradeAmountAtomic": "0",
+    "minSolReserveLamports": "50000000"
+  },
+  "strategy": {
+    "type": "dca",
+    "inputMint": "So11111111111111111111111111111111111111112",
+    "outputMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "amount": "10000000",
+    "everyMinutes": 60
+  }
+}

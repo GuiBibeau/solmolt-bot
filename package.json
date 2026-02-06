@@ -31,6 +31,8 @@
     "edge:db:migrate:local": "cd apps/worker && npm run db:migrate:local",
     "edge:loop:enable:local": "cd apps/worker && npm run loop:enable:local",
     "edge:loop:disable:local": "cd apps/worker && npm run loop:disable:local",
+    "edge:loop:config:dca:local": "cd apps/worker && npm run loop:config:dca:local",
+    "edge:loop:config:rebalance:local": "cd apps/worker && npm run loop:config:rebalance:local",
     "edge:loop:status:local": "cd apps/worker && npm run loop:status:local",
     "edge:loop:tick:local": "cd apps/worker && npm run loop:tick:local"
   },

@@ -1,0 +1,19 @@
+{
+  "enabled": true,
+  "policy": {
+    "dryRun": true,
+    "slippageBps": 50,
+    "maxPriceImpactPct": 0.05,
+    "maxTradeAmountAtomic": "0",
+    "minSolReserveLamports": "50000000"
+  },
+  "strategy": {
+    "type": "rebalance",
+    "baseMint": "So11111111111111111111111111111111111111112",
+    "quoteMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "targetBasePct": 0.5,
+    "thresholdPct": 0.02,
+    "maxSellBaseAmount": "100000000",
+    "maxBuyQuoteAmount": "20000000"
+  }
+}

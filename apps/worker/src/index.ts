@@ -1,12 +1,13 @@
 import { getLoopConfig, requireAdmin, updateLoopConfig } from "./config";
 import { runAutopilotTick } from "./loop";
 import { json, okCors, withCors } from "./response";
+import { listTrades } from "./trade_index";
 import type { Env } from "./types";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default {
-  async fetch(request: Request, env: Env, _ctx: ExecutionContext) {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext) {
     if (request.method === "OPTIONS") {
       return okCors(env);
     }
@@ -64,8 +65,34 @@ export default {
           payload.policy && typeof payload.policy === "object"
             ? payload.policy
             : undefined;
-        const config = await updateLoopConfig(env, { policy });
+        const strategy =
+          payload.strategy && typeof payload.strategy === "object"
+            ? payload.strategy
+            : undefined;
+        const config = await updateLoopConfig(env, {
+          policy: policy as unknown,
+          strategy: strategy as unknown,
+        });
         return withCors(json({ ok: true, config }), env);
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/loop/tick") {
+        requireAdmin(request, env);
+        ctx.waitUntil(runAutopilotTick(env, ctx, "manual"));
+        return withCors(json({ ok: true }), env);
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/trades") {
+        requireAdmin(request, env);
+        const limitRaw = url.searchParams.get("limit") ?? "50";
+        const limit = Number(limitRaw);
+        const tenantId = env.TENANT_ID ?? "default";
+        const trades = await listTrades(
+          env,
+          tenantId,
+          Number.isFinite(limit) ? limit : 50,
+        );
+        return withCors(json({ ok: true, trades }), env);
       }
 
       return withCors(

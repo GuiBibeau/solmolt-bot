@@ -1,6 +1,8 @@
 node_modules/
 dist/
 .env
+.dev.vars
+.env.*
 .next/
 .wrangler/
 package-lock.json
