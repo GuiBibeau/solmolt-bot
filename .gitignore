@@ -11,3 +11,4 @@ runs/
 trades/
 tasks/
 .tmp/
+.turbo/

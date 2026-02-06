@@ -6,8 +6,27 @@ Active development: expect rapid iteration, feature growth, and occasional break
 
 ## Requirements
 
+- **Bun** (repo package manager)
 - **Wrangler CLI** (Cloudflare Workers)
 - Node 18+ (for local tooling)
+
+## Quick start (monorepo dev: portal + edge worker)
+
+This starts both the Next.js portal and the Cloudflare worker locally.
+
+```bash
+bun install
+bun run dev
+```
+
+- Portal: `http://localhost:3000`
+- Edge worker: `http://127.0.0.1:8888/api/health`
+
+If you only want the local CLI/gateway, run:
+
+```bash
+bun run dev:cli
+```
 
 ## Quick start (Cloudflare worker, local)
 
